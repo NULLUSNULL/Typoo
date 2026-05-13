@@ -1,0 +1,191 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512">
+  <defs>
+    <linearGradient id="bg" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#0F172A"/>
+      <stop offset="100%" stop-color="#1E293B"/>
+    </linearGradient>
+
+    <linearGradient id="bodyGrad" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#334155"/>
+      <stop offset="100%" stop-color="#1E293B"/>
+    </linearGradient>
+
+    <linearGradient id="bodyTop" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#475569"/>
+      <stop offset="100%" stop-color="#334155"/>
+    </linearGradient>
+
+    <linearGradient id="paperGrad" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#FFFDF7"/>
+      <stop offset="100%" stop-color="#FEF9EC"/>
+    </linearGradient>
+
+    <linearGradient id="rollerGrad" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#64748B"/>
+      <stop offset="100%" stop-color="#334155"/>
+    </linearGradient>
+
+    <!-- Key gradients - colorful -->
+    <linearGradient id="kRed" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#FF6B6B"/>
+      <stop offset="100%" stop-color="#EF4444"/>
+    </linearGradient>
+    <linearGradient id="kOrange" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#FB923C"/>
+      <stop offset="100%" stop-color="#EA580C"/>
+    </linearGradient>
+    <linearGradient id="kYellow" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#FBBF24"/>
+      <stop offset="100%" stop-color="#D97706"/>
+    </linearGradient>
+    <linearGradient id="kGreen" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#34D399"/>
+      <stop offset="100%" stop-color="#059669"/>
+    </linearGradient>
+    <linearGradient id="kBlue" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#60A5FA"/>
+      <stop offset="100%" stop-color="#2563EB"/>
+    </linearGradient>
+    <linearGradient id="kPurple" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#A78BFA"/>
+      <stop offset="100%" stop-color="#7C3AED"/>
+    </linearGradient>
+    <linearGradient id="kPink" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#F472B6"/>
+      <stop offset="100%" stop-color="#DB2777"/>
+    </linearGradient>
+    <linearGradient id="kDark" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#475569"/>
+      <stop offset="100%" stop-color="#1E293B"/>
+    </linearGradient>
+
+    <filter id="bodyShadow">
+      <feDropShadow dx="0" dy="10" stdDeviation="16" flood-color="#000" flood-opacity="0.5"/>
+    </filter>
+    <filter id="keyShadow">
+      <feDropShadow dx="0" dy="3" stdDeviation="3" flood-color="#000" flood-opacity="0.4"/>
+    </filter>
+    <filter id="paperShadow">
+      <feDropShadow dx="0" dy="-4" stdDeviation="6" flood-color="#000" flood-opacity="0.2"/>
+    </filter>
+
+    <radialGradient id="glare" cx="40%" cy="20%" r="55%">
+      <stop offset="0%" stop-color="#ffffff" stop-opacity="0.07"/>
+      <stop offset="100%" stop-color="#ffffff" stop-opacity="0"/>
+    </radialGradient>
+  </defs>
+
+  <!-- App background -->
+  <rect width="512" height="512" rx="112" ry="112" fill="url(#bg)"/>
+  <rect width="512" height="512" rx="112" ry="112" fill="url(#glare)"/>
+
+  <!-- === TYPEWRITER BODY === -->
+  <g filter="url(#bodyShadow)">
+    <!-- Main body -->
+    <rect x="62" y="270" width="388" height="168" rx="22" ry="22" fill="url(#bodyGrad)"/>
+    <rect x="62" y="260" width="388" height="168" rx="22" ry="22" fill="url(#bodyTop)"/>
+
+    <!-- Top ridge -->
+    <rect x="80" y="255" width="352" height="18" rx="9" ry="9" fill="#475569"/>
+  </g>
+
+  <!-- === PAPER === -->
+  <g filter="url(#paperShadow)">
+    <rect x="162" y="96" width="188" height="190" rx="6" ry="6" fill="url(#paperGrad)"/>
+    <!-- Paper lines -->
+    <line x1="182" y1="138" x2="332" y2="138" stroke="#E2D9C5" stroke-width="1.5" stroke-linecap="round"/>
+    <line x1="182" y1="156" x2="332" y2="156" stroke="#E2D9C5" stroke-width="1.5" stroke-linecap="round"/>
+    <line x1="182" y1="174" x2="332" y2="174" stroke="#E2D9C5" stroke-width="1.5" stroke-linecap="round"/>
+    <line x1="182" y1="192" x2="332" y2="192" stroke="#E2D9C5" stroke-width="1.5" stroke-linecap="round"/>
+    <line x1="182" y1="210" x2="290" y2="210" stroke="#E2D9C5" stroke-width="1.5" stroke-linecap="round"/>
+    <!-- Cursor -->
+    <rect x="292" y="202" width="3" height="16" rx="1.5" fill="#FB923C" opacity="0.95"/>
+  </g>
+
+  <!-- === PLATEN ROLLER === -->
+  <rect x="140" y="245" width="232" height="22" rx="11" ry="11" fill="url(#rollerGrad)"/>
+  <rect x="140" y="243" width="232" height="14" rx="7" ry="7" fill="#64748B"/>
+  <!-- Roller knobs -->
+  <rect x="132" y="246" width="14" height="14" rx="4" fill="#475569"/>
+  <rect x="366" y="246" width="14" height="14" rx="4" fill="#475569"/>
+
+  <!-- === KEYS ROW 1 (top) === -->
+  <!-- 7 keys, colorful -->
+  <g font-family="SF Pro Rounded, -apple-system, Helvetica Neue, sans-serif" font-size="18" font-weight="700" text-anchor="middle" dominant-baseline="middle">
+
+    <!-- Row 1 -->
+    <g filter="url(#keyShadow)">
+      <rect x="84"  y="282" width="44" height="38" rx="9" fill="#1E293B" opacity="0.4"/>
+      <rect x="84"  y="278" width="44" height="38" rx="9" fill="url(#kRed)"/>
+      <text x="106" y="299" fill="#fff">T</text>
+    </g>
+    <g filter="url(#keyShadow)">
+      <rect x="136" y="282" width="44" height="38" rx="9" fill="#1E293B" opacity="0.4"/>
+      <rect x="136" y="278" width="44" height="38" rx="9" fill="url(#kOrange)"/>
+      <text x="158" y="299" fill="#fff">Y</text>
+    </g>
+    <g filter="url(#keyShadow)">
+      <rect x="188" y="282" width="44" height="38" rx="9" fill="#1E293B" opacity="0.4"/>
+      <rect x="188" y="278" width="44" height="38" rx="9" fill="url(#kYellow)"/>
+      <text x="210" y="299" fill="#fff">P</text>
+    </g>
+    <g filter="url(#keyShadow)">
+      <rect x="240" y="282" width="44" height="38" rx="9" fill="#1E293B" opacity="0.4"/>
+      <rect x="240" y="278" width="44" height="38" rx="9" fill="url(#kGreen)"/>
+      <text x="262" y="299" fill="#fff">O</text>
+    </g>
+    <g filter="url(#keyShadow)">
+      <rect x="292" y="282" width="44" height="38" rx="9" fill="#1E293B" opacity="0.4"/>
+      <rect x="292" y="278" width="44" height="38" rx="9" fill="url(#kBlue)"/>
+      <text x="314" y="299" fill="#fff">O</text>
+    </g>
+    <g filter="url(#keyShadow)">
+      <rect x="344" y="282" width="44" height="38" rx="9" fill="#1E293B" opacity="0.4"/>
+      <rect x="344" y="278" width="44" height="38" rx="9" fill="url(#kPurple)"/>
+      <text x="366" y="299" fill="#fff">!</text>
+    </g>
+    <g filter="url(#keyShadow)">
+      <rect x="396" y="282" width="32" height="38" rx="9" fill="#1E293B" opacity="0.4"/>
+      <rect x="396" y="278" width="32" height="38" rx="9" fill="url(#kPink)"/>
+      <text x="412" y="299" fill="#fff" font-size="14">⌫</text>
+    </g>
+
+    <!-- Row 2 -->
+    <g filter="url(#keyShadow)">
+      <rect x="84"  y="328" width="44" height="38" rx="9" fill="#1E293B" opacity="0.4"/>
+      <rect x="84"  y="324" width="44" height="38" rx="9" fill="url(#kDark)"/>
+      <text x="106" y="345" fill="#94A3B8" font-size="14">tab</text>
+    </g>
+    <g filter="url(#keyShadow)">
+      <rect x="136" y="328" width="44" height="38" rx="9" fill="#1E293B" opacity="0.4"/>
+      <rect x="136" y="324" width="44" height="38" rx="9" fill="url(#kOrange)"/>
+      <text x="158" y="345" fill="#fff">W</text>
+    </g>
+    <g filter="url(#keyShadow)">
+      <rect x="188" y="328" width="44" height="38" rx="9" fill="#1E293B" opacity="0.4"/>
+      <rect x="188" y="324" width="44" height="38" rx="9" fill="url(#kGreen)"/>
+      <text x="210" y="345" fill="#fff">R</text>
+    </g>
+    <g filter="url(#keyShadow)">
+      <rect x="240" y="328" width="44" height="38" rx="9" fill="#1E293B" opacity="0.4"/>
+      <rect x="240" y="324" width="44" height="38" rx="9" fill="url(#kPurple)"/>
+      <text x="262" y="345" fill="#fff">I</text>
+    </g>
+    <g filter="url(#keyShadow)">
+      <rect x="292" y="328" width="44" height="38" rx="9" fill="#1E293B" opacity="0.4"/>
+      <rect x="292" y="324" width="44" height="38" rx="9" fill="url(#kBlue)"/>
+      <text x="314" y="345" fill="#fff">T</text>
+    </g>
+    <g filter="url(#keyShadow)">
+      <rect x="344" y="328" width="84" height="38" rx="9" fill="#1E293B" opacity="0.4"/>
+      <rect x="344" y="324" width="84" height="38" rx="9" fill="url(#kRed)"/>
+      <text x="386" y="345" fill="#fff" font-size="13">return</text>
+    </g>
+
+    <!-- Row 3: spacebar -->
+    <g filter="url(#keyShadow)">
+      <rect x="84"  y="374" width="344" height="38" rx="9" fill="#1E293B" opacity="0.4"/>
+      <rect x="84"  y="370" width="344" height="38" rx="9" fill="url(#kDark)"/>
+    </g>
+  </g>
+</svg>
