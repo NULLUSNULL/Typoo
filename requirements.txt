@@ -1,0 +1,20 @@
+# requirements.txt
+# Dependencias de Typoo
+# Instalación: pip install -r requirements.txt
+
+# ── Interfaz gráfica ──────────────────────────────────────────────────────────
+PySide6>=6.6.0
+
+# ── Exportación de manuscritos ────────────────────────────────────────────────
+python-docx>=1.1.0       # Exportación a Word (.docx)
+reportlab>=4.1.0         # Exportación a PDF
+
+# ── Procesamiento de Markdown ─────────────────────────────────────────────────
+markdown>=3.5.0          # Conversión Markdown → HTML para la vista previa
+
+# ── Opcionales (calidad de código) ────────────────────────────────────────────
+# mypy>=1.0              # Verificación de tipos estática
+
+# ── Empaquetado (para distribución) ──────────────────────────────────────────
+# pyinstaller>=6.0.0    # Descomenta para empaquetar con PyInstaller
+# nuitka>=2.0           # Descomenta para compilar con Nuitka
