@@ -1,18 +1,15 @@
 # editors/editor_markdown.py
-# Editor de texto Markdown con numeración de líneas y formato integrado
+# Editor de texto con aspecto de máquina de escribir literaria:
+# tipografía con serifas, columna de lectura centrada e interlineado generoso.
 
 from __future__ import annotations
 
 from typing import Optional
 
-from PySide6.QtCore import QRect, QSize, Qt, Signal
+from PySide6.QtCore import Qt, Signal
 from PySide6.QtGui import (
-    QColor,
     QFont,
-    QKeySequence,
-    QPainter,
-    QPaintEvent,
-    QResizeEvent,
+    QTextBlockFormat,
     QTextCursor,
     QWheelEvent,
 )
@@ -22,36 +19,29 @@ from PySide6.QtWidgets import (
 )
 
 from core.configuracion import Configuracion
-from core.constantes import Tema
+from core.constantes import (
+    Tema,
+    INTERLINEADO_EDITOR,
+    ANCHO_COLUMNA_CARACTERES,
+)
 from editors.resaltador_sintaxis import ResaltadorMarkdown
-
-
-class _NumeroLineas(QWidget):
-    """
-    Widget lateral que muestra los números de línea del editor.
-    Se vincula al QPlainTextEdit padre.
-    """
-
-    def __init__(self, editor: "EditorMarkdown") -> None:
-        super().__init__(editor)
-        self._editor = editor
-
-    def sizeHint(self) -> QSize:
-        return QSize(self._editor.ancho_numeros_linea(), 0)
-
-    def paintEvent(self, evento: QPaintEvent) -> None:  # type: ignore[override]
-        self._editor.pintar_numeros_linea(evento)
 
 
 class EditorMarkdown(QPlainTextEdit):
     """
-    Editor principal con:
-    - Numeración de líneas
-    - Resaltado de sintaxis Markdown
+    Editor literario con:
+    - Tipografía con serifas y columna de lectura centrada (aspecto de libro)
+    - Interlineado amplio para una lectura cómoda
+    - Resaltado de sintaxis Markdown discreto
     - Contador de palabras integrado
     - Detección de cambios no guardados
     - Inserción de fragmentos de formato
     """
+
+    # Margen lateral mínimo aunque la ventana sea estrecha
+    _PADDING_MIN_LATERAL = 28
+    # Espacio superior para que el texto no quede pegado a la barra
+    _PADDING_SUPERIOR = 16
 
     # Señales personalizadas
     palabras_cambiadas = Signal(int)        # Emite el conteo actualizado de palabras
@@ -59,13 +49,14 @@ class EditorMarkdown(QPlainTextEdit):
 
     def __init__(self, parent: Optional[QWidget] = None) -> None:
         super().__init__(parent)
+        self.setObjectName("EditorMarkdown")
         self._config = Configuracion()
         self._modificado = False
         self._ruta_archivo: str = ""
         self._nombre_archivo: str = "Sin título"
 
-        self._widget_lineas = _NumeroLineas(self)
         self._resaltador: Optional[ResaltadorMarkdown] = None
+        self._ajustando_columna = False
 
         self._configurar_fuente()
         self._configurar_editor()
@@ -98,19 +89,20 @@ class EditorMarkdown(QPlainTextEdit):
 
     def _configurar_fuente(self) -> None:
         fuente = QFont(self._config.fuente_familia, self._config.fuente_tamanio)
-        fuente.setFixedPitch(True)
+        fuente.setStyleStrategy(QFont.StyleStrategy.PreferAntialias)
         self.setFont(fuente)
 
     def _configurar_editor(self) -> None:
         self.setLineWrapMode(QPlainTextEdit.LineWrapMode.WidgetWidth)
         self.setTabStopDistance(40)
-        self.updateGeometry()
+        self.setCursorWidth(2)
+        self.setFrameShape(QPlainTextEdit.Shape.NoFrame)
+        # Margen interior del documento (sensación de página)
+        self.document().setDocumentMargin(8)
+        self._actualizar_margenes_columna()
 
     def _conectar_señales(self) -> None:
-        self.blockCountChanged.connect(self._actualizar_ancho_lineas)
-        self.updateRequest.connect(self._actualizar_numeros_linea)
         self.textChanged.connect(self._al_texto_cambiado)
-        self._actualizar_ancho_lineas()
 
     def _inicializar_resaltador(self) -> None:
         es_oscuro = self._config.tema == Tema.OSCURO
@@ -119,68 +111,67 @@ class EditorMarkdown(QPlainTextEdit):
     # ─── Estilo y tema ────────────────────────────────────────────────────────
 
     def aplicar_tema(self, oscuro: bool) -> None:
-        """Actualiza la paleta y el resaltador al cambiar el tema."""
+        """Actualiza el resaltador al cambiar el tema de la interfaz."""
         if self._resaltador:
             self._resaltador.cambiar_tema(oscuro)
-        self._widget_lineas.update()
 
-    # ─── Numeración de líneas ─────────────────────────────────────────────────
+    # ─── Columna de lectura centrada ──────────────────────────────────────────
 
-    def ancho_numeros_linea(self) -> int:
-        digitos = max(1, len(str(max(1, self.blockCount()))))
-        return 6 + self.fontMetrics().horizontalAdvance("9") * digitos
+    def _ancho_columna_max(self) -> int:
+        """Ancho máximo cómodo de la columna de texto, en píxeles."""
+        em = self.fontMetrics().horizontalAdvance("x")
+        return max(360, em * ANCHO_COLUMNA_CARACTERES)
 
-    def _actualizar_ancho_lineas(self) -> None:
-        self.setViewportMargins(self.ancho_numeros_linea(), 0, 0, 0)
+    def _actualizar_margenes_columna(self) -> None:
+        """Centra el texto en una columna de ancho cómodo (aspecto de libro)."""
+        if self._ajustando_columna:
+            return
+        self._ajustando_columna = True
+        try:
+            ancho_total = self.contentsRect().width()
+            columna = self._ancho_columna_max()
+            lateral = max(self._PADDING_MIN_LATERAL, (ancho_total - columna) // 2)
+            self.setViewportMargins(lateral, self._PADDING_SUPERIOR, lateral, 0)
+            # setViewportMargins no recalcula por sí solo el ajuste de línea al
+            # nuevo ancho útil del viewport; forzamos el recálculo alternando el
+            # modo de ajuste (truco habitual en QPlainTextEdit).
+            modo = self.lineWrapMode()
+            if modo == QPlainTextEdit.LineWrapMode.WidgetWidth:
+                super().setLineWrapMode(QPlainTextEdit.LineWrapMode.NoWrap)
+                super().setLineWrapMode(modo)
+        finally:
+            self._ajustando_columna = False
 
-    def _actualizar_numeros_linea(self, rect: QRect, dy: int) -> None:
-        if dy:
-            self._widget_lineas.scroll(0, dy)
-        else:
-            self._widget_lineas.update(
-                0, rect.y(), self._widget_lineas.width(), rect.height()
-            )
-        if rect.contains(self.viewport().rect()):
-            self._actualizar_ancho_lineas()
-
-    def resizeEvent(self, evento: QResizeEvent) -> None:  # type: ignore[override]
+    def resizeEvent(self, evento) -> None:  # type: ignore[override]
         super().resizeEvent(evento)
-        cr = self.contentsRect()
-        self._widget_lineas.setGeometry(
-            QRect(cr.left(), cr.top(), self.ancho_numeros_linea(), cr.height())
+        self._actualizar_margenes_columna()
+
+    # ─── Interlineado ─────────────────────────────────────────────────────────
+
+    def _aplicar_interlineado(self) -> None:
+        """
+        Aplica un interlineado proporcional a todo el documento.
+        Los párrafos nuevos heredan el formato del párrafo anterior, así que
+        basta con aplicarlo una vez al cargar el contenido.
+        """
+        formato = QTextBlockFormat()
+        formato.setLineHeight(
+            INTERLINEADO_EDITOR,
+            QTextBlockFormat.LineHeightTypes.ProportionalHeight.value,
         )
-
-    def pintar_numeros_linea(self, evento: QPaintEvent) -> None:
-        """Dibuja los números de línea en el widget lateral."""
-        painter = QPainter(self._widget_lineas)
-        oscuro = self._config.tema == Tema.OSCURO
-        fondo = QColor("#2C313A") if oscuro else QColor("#F0F0F0")
-        texto = QColor("#5C6370") if oscuro else QColor("#9CA3AF")
-        actual = QColor("#ABB2BF") if oscuro else QColor("#374151")
-
-        painter.fillRect(evento.rect(), fondo)
-
-        bloque = self.firstVisibleBlock()
-        num_bloque = bloque.blockNumber()
-        offset = self.contentOffset()
-        top = int(self.blockBoundingGeometry(bloque).translated(offset).top())
-        bottom = top + int(self.blockBoundingRect(bloque).height())
-        linea_actual = self.textCursor().blockNumber()
-
-        while bloque.isValid() and top <= evento.rect().bottom():
-            if bloque.isVisible() and bottom >= evento.rect().top():
-                numero = str(num_bloque + 1)
-                color = actual if num_bloque == linea_actual else texto
-                painter.setPen(color)
-                painter.drawText(
-                    0, top, self._widget_lineas.width() - 2,
-                    self.fontMetrics().height(),
-                    Qt.AlignmentFlag.AlignRight, numero
-                )
+        cursor = self.textCursor()
+        cursor.beginEditBlock()
+        bloque = self.document().firstBlock()
+        while bloque.isValid():
+            cur = QTextCursor(bloque)
+            cur.mergeBlockFormat(formato)
             bloque = bloque.next()
-            top = bottom
-            bottom = top + int(self.blockBoundingRect(bloque).height())
-            num_bloque += 1
+        cursor.endEditBlock()
+
+    def setPlainText(self, texto: str) -> None:  # type: ignore[override]
+        super().setPlainText(texto)
+        self._aplicar_interlineado()
+        self.document().clearUndoRedoStacks()
 
     # ─── Conteo de palabras y estado de modificación ─────────────────────────
 
@@ -282,6 +273,7 @@ class EditorMarkdown(QPlainTextEdit):
             if 6 <= nuevo_tamanio <= 48:
                 fuente.setPointSize(nuevo_tamanio)
                 self.setFont(fuente)
+                self._actualizar_margenes_columna()
             evento.accept()
         else:
             super().wheelEvent(evento)

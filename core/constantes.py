@@ -62,8 +62,11 @@ MAX_RESPALDOS                = 10
 ANCHO_MINIMO_EXPLORADOR      = 180
 ANCHO_MAXIMO_EXPLORADOR      = 450
 ANCHO_MINIMO_VISTA_PREVIA    = 200
-FUENTE_EDITOR_FAMILIA        = "Courier New"
-FUENTE_EDITOR_TAMANIO        = 12
+# Tipografía literaria con serifas (estilo manuscrito), no monoespaciada
+FUENTE_EDITOR_FAMILIA        = "Georgia"
+FUENTE_EDITOR_TAMANIO        = 15
+INTERLINEADO_EDITOR          = 150     # % de interlineado (1.5 líneas)
+ANCHO_COLUMNA_CARACTERES     = 70      # ancho máximo cómodo de la columna de texto
 
 # ─── Iconos de texto para la barra de herramientas ───────────────────────────
 # Se usan caracteres Unicode ya que no se distribuyen archivos de imagen

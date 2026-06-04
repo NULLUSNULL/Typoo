@@ -142,9 +142,11 @@ QPlainTextEdit {{
     border: none;
     selection-background-color: #3E4451;
     selection-color: #DCDFE4;
-    font-family: "Courier New", Consolas, monospace;
 }}
 QPlainTextEdit:focus {{ border: 1px solid #528BFF; }}
+
+/* El editor literario es un lienzo a sangre completa: sin borde ni padding */
+QPlainTextEdit#EditorMarkdown {{ border: none; padding: 0; background-color: #1E2227; }}
 
 /* ── Panel de pestañas ────────────────────────────────────────────── */
 QTabWidget::pane {{
@@ -468,9 +470,11 @@ QPlainTextEdit {{
     border: none;
     selection-background-color: #CCE0FF;
     selection-color: #1D1D1F;
-    font-family: "Courier New", Consolas, monospace;
 }}
 QPlainTextEdit:focus {{ border: 1px solid #007AFF; }}
+
+/* El editor literario es un lienzo a sangre completa: sin borde ni padding */
+QPlainTextEdit#EditorMarkdown {{ border: none; padding: 0; background-color: #FFFFFF; }}
 
 /* ── Panel de pestañas ────────────────────────────────────────────── */
 QTabWidget::pane {{ border: none; background-color: #FFFFFF; }}

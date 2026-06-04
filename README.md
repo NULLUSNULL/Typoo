@@ -12,7 +12,7 @@
 | Área | Descripción |
 |------|-------------|
 | Gestión de proyectos | Árbol jerárquico: capítulos, escenas, notas, personajes, ubicaciones |
-| Editor Markdown | Resaltado de sintaxis, numeración de líneas, zoom con Ctrl+rueda |
+| Editor literario | Tipografía con serifas, columna de lectura centrada, interlineado amplio, resaltado discreto y zoom con Ctrl+rueda |
 | Múltiples áreas de trabajo | Hasta 3 editores simultáneos con splitters redimensionables |
 | Vista previa HTML | Renderizado Markdown en tiempo real en el panel derecho |
 | Barra de formato | Negrita, cursiva, encabezados, listas, citas, código, símbolos literarios |
