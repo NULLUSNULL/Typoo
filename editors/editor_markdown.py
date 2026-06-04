@@ -3,6 +3,7 @@
 
 from __future__ import annotations
 
+import re
 from typing import Optional
 
 from PySide6.QtCore import QRect, QSize, Qt, Signal
@@ -56,6 +57,7 @@ class EditorMarkdown(QPlainTextEdit):
     # Señales personalizadas
     palabras_cambiadas = Signal(int)        # Emite el conteo actualizado de palabras
     modificado_cambiado = Signal(bool)      # Emite True cuando hay cambios sin guardar
+    tamano_zoom_cambiado = Signal(int)      # Emite el nuevo tamaño tras zoom (Ctrl+rueda)
 
     def __init__(self, parent: Optional[QWidget] = None) -> None:
         super().__init__(parent)
@@ -97,9 +99,26 @@ class EditorMarkdown(QPlainTextEdit):
     # ─── Configuración inicial ────────────────────────────────────────────────
 
     def _configurar_fuente(self) -> None:
-        fuente = QFont(self._config.fuente_familia, self._config.fuente_tamanio)
-        fuente.setFixedPitch(True)
+        self.setObjectName("EditorMarkdown")
+        self.aplicar_fuente(self._config.fuente_familia, self._config.fuente_tamanio)
+
+    def aplicar_fuente(self, familia: str, tamano: int) -> None:
+        """
+        Aplica la tipografía al editor. Además de setFont (para que las
+        métricas internas sean correctas), fija la familia y el tamaño como
+        hoja de estilo propia del widget, que tiene prioridad sobre el QSS
+        global de la aplicación (que define la fuente de la interfaz).
+        """
+        fuente = QFont(familia, tamano)
+        fuente.setStyleStrategy(QFont.StyleStrategy.PreferAntialias)
         self.setFont(fuente)
+        self.setStyleSheet(
+            f'QPlainTextEdit#EditorMarkdown {{ font-family: "{familia}"; '
+            f'font-size: {tamano}pt; }}'
+        )
+        if hasattr(self, "_widget_lineas"):
+            self._actualizar_ancho_lineas()
+            self._widget_lineas.update()
 
     def _configurar_editor(self) -> None:
         self.setLineWrapMode(QPlainTextEdit.LineWrapMode.WidgetWidth)
@@ -233,19 +252,95 @@ class EditorMarkdown(QPlainTextEdit):
         cursor.insertText(prefijo + linea_limpia)
         self.setTextCursor(cursor)
 
-    def insertar_lista_viñeta(self) -> None:
-        """Añade '- ' al inicio de la línea actual."""
-        cursor = self.textCursor()
-        cursor.movePosition(QTextCursor.MoveOperation.StartOfLine)
-        cursor.insertText("- ")
-        self.setTextCursor(cursor)
+    # ─── Listas y sangría (operan sobre las líneas seleccionadas) ─────────────
 
-    def insertar_lista_numerada(self) -> None:
-        """Añade '1. ' al inicio de la línea actual."""
+    def _transformar_lineas(self, func) -> None:
+        """
+        Aplica `func(texto_linea, indice)` a cada línea abarcada por la
+        selección (o a la línea actual si no hay selección) y preserva la
+        selección resultante.
+        """
         cursor = self.textCursor()
-        cursor.movePosition(QTextCursor.MoveOperation.StartOfLine)
-        cursor.insertText("1. ")
-        self.setTextCursor(cursor)
+        habia_seleccion = cursor.hasSelection()
+        ini, fin = cursor.selectionStart(), cursor.selectionEnd()
+        doc = self.document()
+
+        sonda = QTextCursor(doc)
+        sonda.setPosition(ini)
+        primero = sonda.blockNumber()
+        sonda.setPosition(fin)
+        ultimo = sonda.blockNumber()
+
+        cursor.beginEditBlock()
+        for n in range(primero, ultimo + 1):
+            bloque = doc.findBlockByNumber(n)
+            c = QTextCursor(bloque)
+            c.movePosition(QTextCursor.MoveOperation.StartOfBlock)
+            c.movePosition(QTextCursor.MoveOperation.EndOfBlock,
+                           QTextCursor.MoveMode.KeepAnchor)
+            original = bloque.text()
+            nuevo = func(original, n - primero)
+            if nuevo != original:
+                c.insertText(nuevo)
+        cursor.endEditBlock()
+
+        # Restaurar una selección coherente con el rango afectado
+        b_ini = doc.findBlockByNumber(primero)
+        b_fin = doc.findBlockByNumber(ultimo)
+        sel = self.textCursor()
+        if habia_seleccion:
+            sel.setPosition(b_ini.position())
+            sel.setPosition(b_fin.position() + len(b_fin.text()),
+                            QTextCursor.MoveMode.KeepAnchor)
+        else:
+            sel.setPosition(b_ini.position() + len(b_ini.text()))
+        self.setTextCursor(sel)
+
+    @staticmethod
+    def _sangria(linea: str) -> str:
+        return re.match(r"^(\s*)", linea).group(1)
+
+    def alternar_lista_vinetas(self) -> None:
+        """Activa o quita la viñeta '- ' en cada línea seleccionada."""
+        def f(linea: str, _i: int) -> str:
+            if not linea.strip():
+                return linea
+            m = re.match(r"^(\s*)([-*+]\s+)(.*)$", linea)
+            if m:
+                return m.group(1) + m.group(3)
+            s = self._sangria(linea)
+            return f"{s}- {linea[len(s):]}"
+        self._transformar_lineas(f)
+
+    def alternar_lista_numerada(self) -> None:
+        """Activa o quita la numeración '1. 2. …' en las líneas seleccionadas."""
+        def f(linea: str, i: int) -> str:
+            if not linea.strip():
+                return linea
+            m = re.match(r"^(\s*)(\d+\.\s+)(.*)$", linea)
+            if m:
+                return m.group(1) + m.group(3)
+            s = self._sangria(linea)
+            return f"{s}{i + 1}. {linea[len(s):]}"
+        self._transformar_lineas(f)
+
+    def aumentar_sangria(self) -> None:
+        """Aumenta un nivel de sangría (cuatro espacios) → listas multinivel."""
+        self._transformar_lineas(lambda l, _i: ("    " + l) if l.strip() else l)
+
+    def disminuir_sangria(self) -> None:
+        """Reduce un nivel de sangría."""
+        def f(linea: str, _i: int) -> str:
+            if linea.startswith("    "):
+                return linea[4:]
+            if linea.startswith("\t"):
+                return linea[1:]
+            return re.sub(r"^[ \t]{1,4}", "", linea)
+        self._transformar_lineas(f)
+
+    def _en_linea_lista(self) -> bool:
+        linea = self.textCursor().block().text()
+        return bool(re.match(r"^\s*([-*+]|\d+\.)\s", linea))
 
     def insertar_cita(self) -> None:
         """Añade '> ' al inicio de la línea actual."""
@@ -272,16 +367,35 @@ class EditorMarkdown(QPlainTextEdit):
             cursor.setPosition(pos + 1)
             self.setTextCursor(cursor)
 
+    # ─── Sangría con el teclado (Tab / Mayús+Tab) ────────────────────────────
+
+    def keyPressEvent(self, evento) -> None:  # type: ignore[override]
+        es_tab = evento.key() == Qt.Key.Key_Tab
+        es_backtab = evento.key() == Qt.Key.Key_Backtab
+        mays = bool(evento.modifiers() & Qt.KeyboardModifier.ShiftModifier)
+
+        if es_backtab or (es_tab and mays):
+            self.disminuir_sangria()
+            evento.accept()
+            return
+        if es_tab:
+            cursor = self.textCursor()
+            # Tab sangra cuando hay selección de varias líneas o se está en una lista
+            if cursor.hasSelection() or self._en_linea_lista():
+                self.aumentar_sangria()
+                evento.accept()
+                return
+        super().keyPressEvent(evento)
+
     # ─── Zoom con la rueda del ratón ─────────────────────────────────────────
 
     def wheelEvent(self, evento: QWheelEvent) -> None:  # type: ignore[override]
         if evento.modifiers() & Qt.KeyboardModifier.ControlModifier:
             delta = evento.angleDelta().y()
-            fuente = self.font()
-            nuevo_tamanio = fuente.pointSize() + (1 if delta > 0 else -1)
+            nuevo_tamanio = self.font().pointSize() + (1 if delta > 0 else -1)
             if 6 <= nuevo_tamanio <= 48:
-                fuente.setPointSize(nuevo_tamanio)
-                self.setFont(fuente)
+                self.aplicar_fuente(self.font().family(), nuevo_tamanio)
+                self.tamano_zoom_cambiado.emit(nuevo_tamanio)
             evento.accept()
         else:
             super().wheelEvent(evento)

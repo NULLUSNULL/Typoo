@@ -15,7 +15,8 @@
 | Editor Markdown | Resaltado de sintaxis, numeración de líneas, zoom con Ctrl+rueda |
 | Múltiples áreas de trabajo | Hasta 3 editores simultáneos con splitters redimensionables |
 | Vista previa HTML | Renderizado Markdown en tiempo real en el panel derecho |
-| Barra de formato | Énfasis (negrita/cursiva), títulos, citas, separador de escena y un submenú de caracteres especiales (rayas, comillas, ornamentos) |
+| Barra de formato | Selector de tipografía y tamaño, énfasis (negrita, cursiva, subrayado, tachado, subíndice, superíndice), títulos, citas, listas (viñetas, numeradas y multinivel con sangría) y submenú de caracteres especiales |
+| Tipografías | Conjunto de fuentes empaquetadas (EB Garamond, Lora, Literata, Crimson Pro, Spectral, Bitter, Playfair Display, Inter) bajo licencia SIL OFL |
 | Búsqueda | Simple, con regex y búsqueda en todo el proyecto |
 | Exportación | Word (.docx), PDF y texto plano (.txt) |
 | Temas | Oscuro (defecto) y claro tipo macOS, intercambiables con Ctrl+Shift+T |
@@ -173,7 +174,8 @@ Typoo/
 │   └── exportador_txt.py        # Exportación a texto plano
 │
 └── assets/
-    └── iconos/                  # SVGs para flechas de SpinBox y árbol de proyecto
+    ├── iconos/                  # SVGs para flechas de SpinBox y árbol de proyecto
+    └── fonts/                   # Tipografías empaquetadas (.ttf, SIL OFL) y licencias
 ```
 
 ---
@@ -216,6 +218,20 @@ pyinstaller --onefile --windowed --name Typoo ^
 ```
 
 El ejecutable resultante (`dist/Typoo.exe`) incluye todos los assets y no requiere Python instalado.
+
+---
+
+## Tipografías incluidas
+
+Typoo incluye un conjunto de tipografías de alta calidad, todas bajo la
+**SIL Open Font License 1.1**, disponibles desde el selector de fuente de la
+barra de formato:
+
+- **Literarias (serif):** EB Garamond, Lora, Literata, Crimson Pro, Spectral, Bitter
+- **Decorativa:** Playfair Display
+- **Moderna (sans):** Inter
+
+El texto completo de cada licencia se encuentra en `assets/fonts/licenses/`.
 
 ---
 

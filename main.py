@@ -47,6 +47,10 @@ def main() -> int:
     fuente_base = QFont("Segoe UI", 10)
     app.setFont(fuente_base)
 
+    # Registrar las tipografías empaquetadas (Lora, EB Garamond, Literata…)
+    from core.fuentes import registrar_fuentes_empaquetadas
+    registrar_fuentes_empaquetadas()
+
     # Icono de la aplicación (barra de tareas, bandeja del sistema, alt-tab)
     if RUTA_ICONO.exists():
         icono = QIcon(str(RUTA_ICONO))
