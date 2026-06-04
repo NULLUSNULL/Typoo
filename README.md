@@ -15,7 +15,7 @@
 | Editor Markdown | Resaltado de sintaxis, numeración de líneas, zoom con Ctrl+rueda |
 | Múltiples áreas de trabajo | Hasta 3 editores simultáneos con splitters redimensionables |
 | Vista previa HTML | Renderizado Markdown en tiempo real en el panel derecho |
-| Barra de formato | Negrita, cursiva, encabezados, listas, citas, código, símbolos literarios |
+| Barra de formato | Énfasis (negrita/cursiva), títulos, citas, separador de escena y un submenú de caracteres especiales (rayas, comillas, ornamentos) |
 | Búsqueda | Simple, con regex y búsqueda en todo el proyecto |
 | Exportación | Word (.docx), PDF y texto plano (.txt) |
 | Temas | Oscuro (defecto) y claro tipo macOS, intercambiables con Ctrl+Shift+T |

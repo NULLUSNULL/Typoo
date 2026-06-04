@@ -351,25 +351,17 @@ class VentanaPrincipal(QMainWindow):
                     self._mover_a_panel(item, origen, destino)
             )
 
-        # Barra de herramientas de formato
+        # Barra de formato (orientada a novela)
         bh = self._barra_formato
         bh.negrita_solicitada.connect(lambda: self._formato("**", "**"))
         bh.cursiva_solicitada.connect(lambda: self._formato("*", "*"))
-        bh.subrayado_solicitado.connect(lambda: self._formato("<u>", "</u>"))
-        bh.tachado_solicitado.connect(lambda: self._formato("~~", "~~"))
         bh.encabezado_solicitado.connect(self._insertar_encabezado)
-        bh.lista_viñeta_solicitada.connect(self._insertar_lista_viñeta)
-        bh.lista_num_solicitada.connect(self._insertar_lista_num)
         bh.cita_solicitada.connect(self._insertar_cita)
-        bh.codigo_linea_solicitado.connect(lambda: self._formato("`", "`"))
-        bh.bloque_codigo_solicitado.connect(lambda: self._formato("```\n", "\n```"))
-        bh.enlace_solicitado.connect(self._insertar_enlace)
+        bh.lista_viñeta_solicitada.connect(self._insertar_lista_viñeta)
         bh.separador_solicitado.connect(self._insertar_separador)
-        bh.guion_largo_solicitado.connect(lambda: self._insertar_texto("—"))
-        bh.guion_corto_solicitado.connect(lambda: self._insertar_texto("–"))
-        bh.comillas_esp_solicitadas.connect(lambda: self._formato("«", "»"))
-        bh.comillas_ing_solicitadas.connect(lambda: self._formato("“", "”"))
-        bh.puntos_suspension_sol.connect(lambda: self._insertar_texto("…"))
+        # Caracteres especiales: insertar literal o envolver la selección
+        bh.caracter_solicitado.connect(self._insertar_texto)
+        bh.envolver_solicitado.connect(self._formato)
 
     # ─── Autoguardado ─────────────────────────────────────────────────────────
 
