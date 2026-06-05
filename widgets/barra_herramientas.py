@@ -1,24 +1,33 @@
 # widgets/barra_herramientas.py
-# Barra de herramientas de formato Markdown para el editor
+# Barra de formato del editor, al estilo de un procesador de textos pero
+# orientada a la escritura de novelas.
+#
+# Incluye selector de tipografía y tamaño, énfasis (negrita, cursiva,
+# subrayado, tachado, subíndice, superíndice), niveles de título, citas,
+# listas (viñetas, numeradas y multinivel mediante sangría) y un submenú de
+# caracteres especiales.
 
 from __future__ import annotations
 
-from typing import Optional, Callable
+from typing import Optional
 
 from PySide6.QtCore import Qt, Signal
-from PySide6.QtGui import QFont
+from PySide6.QtGui import QStandardItem, QStandardItemModel
 from PySide6.QtWidgets import (
     QComboBox,
     QFrame,
     QHBoxLayout,
-    QLabel,
-    QPushButton,
-    QSizePolicy,
-    QToolBar,
+    QMenu,
     QToolButton,
     QVBoxLayout,
     QWidget,
 )
+
+from core.configuracion import Configuracion
+from core.fuentes import grupos_para_selector
+
+# Tamaños de fuente ofrecidos en el selector.
+_TAMANOS = [10, 11, 12, 13, 14, 15, 16, 18, 20, 22, 24, 28, 32]
 
 
 def _boton_formato(
@@ -26,6 +35,8 @@ def _boton_formato(
     tooltip: str,
     negrita: bool = False,
     cursiva: bool = False,
+    subrayado: bool = False,
+    tachado: bool = False,
     ancho: int = 32,
 ) -> QToolButton:
     """Factoría de botones de la barra de formato."""
@@ -39,6 +50,8 @@ def _boton_formato(
     fuente = btn.font()
     fuente.setBold(negrita)
     fuente.setItalic(cursiva)
+    fuente.setUnderline(subrayado)
+    fuente.setStrikeOut(tachado)
     btn.setFont(fuente)
     return btn
 
@@ -54,34 +67,43 @@ def _separador_vertical() -> QFrame:
 
 class BarraHerramientas(QWidget):
     """
-    Barra de herramientas de formato Markdown ubicada sobre el editor.
+    Barra de formato ubicada sobre el editor.
     Emite señales de acción que la ventana principal conecta al editor activo.
     """
 
-    # Señales de formato básico
+    # Tipografía
+    fuente_cambiada         = Signal(str)
+    tamano_cambiado         = Signal(int)
+
+    # Énfasis de carácter
     negrita_solicitada      = Signal()
     cursiva_solicitada      = Signal()
     subrayado_solicitado    = Signal()
     tachado_solicitado      = Signal()
-    encabezado_solicitado   = Signal(int)    # nivel 1-6
+    subindice_solicitado    = Signal()
+    superindice_solicitado  = Signal()
+
+    # Estructura
+    encabezado_solicitado   = Signal(int)    # 1 = título, 2 = sección, 3 = subsección
+    cita_solicitada         = Signal()
+
+    # Listas
     lista_viñeta_solicitada = Signal()
     lista_num_solicitada    = Signal()
-    cita_solicitada         = Signal()
-    codigo_linea_solicitado = Signal()
-    bloque_codigo_solicitado= Signal()
-    enlace_solicitado       = Signal()
+    sangria_aumentar_sol    = Signal()       # multinivel: aumentar nivel
+    sangria_disminuir_sol   = Signal()       # multinivel: disminuir nivel
+
+    # Separador de escena
     separador_solicitado    = Signal()
 
-    # Señales de símbolos especiales
-    guion_largo_solicitado  = Signal()       # —
-    guion_corto_solicitado  = Signal()       # –
-    comillas_esp_solicitadas= Signal()       # « »
-    comillas_ing_solicitadas= Signal()       # " "
-    puntos_suspension_sol   = Signal()       # …
+    # Caracteres especiales (submenú)
+    caracter_solicitado     = Signal(str)        # inserta el texto tal cual
+    envolver_solicitado     = Signal(str, str)   # envuelve la selección (comillas)
 
     def __init__(self, parent: Optional[QWidget] = None) -> None:
         super().__init__(parent)
         self.setObjectName("BarraHerramientas")
+        self._config = Configuracion()
         self._construir_ui()
 
     def _construir_ui(self) -> None:
@@ -91,96 +113,115 @@ class BarraHerramientas(QWidget):
 
         fila = QWidget()
         layout = QHBoxLayout(fila)
-        layout.setContentsMargins(4, 2, 4, 2)
-        layout.setSpacing(2)
+        layout.setContentsMargins(6, 3, 6, 3)
+        layout.setSpacing(3)
 
-        # ── Grupo: Texto básico ──────────────────────────────────────────────
-        self._btn_negrita = _boton_formato("B", "Negrita (Ctrl+B)", negrita=True)
-        self._btn_cursiva = _boton_formato("I", "Cursiva (Ctrl+I)", cursiva=True)
-        self._btn_subrayado = _boton_formato("U̲", "Subrayado (Ctrl+U)")
-        self._btn_tachado = _boton_formato("S̶", "Tachado")
+        # ── Grupo: Tipografía ────────────────────────────────────────────────
+        self._combo_fuente = self._crear_combo_fuentes()
+        self._combo_fuente.currentTextChanged.connect(self._al_cambiar_fuente)
+        layout.addWidget(self._combo_fuente)
+
+        self._combo_tamano = QComboBox()
+        self._combo_tamano.setToolTip("Tamaño de fuente")
+        self._combo_tamano.setFixedWidth(58)
+        self._combo_tamano.setEditable(True)
+        self._combo_tamano.lineEdit().setAlignment(Qt.AlignmentFlag.AlignCenter)
+        for t in _TAMANOS:
+            self._combo_tamano.addItem(str(t))
+        self._seleccionar_tamano_inicial()
+        self._combo_tamano.currentTextChanged.connect(self._al_cambiar_tamano)
+        layout.addWidget(self._combo_tamano)
+
+        layout.addWidget(_separador_vertical())
+
+        # ── Grupo: Énfasis ───────────────────────────────────────────────────
+        self._btn_negrita   = _boton_formato("B", "Negrita (Ctrl+B)", negrita=True)
+        self._btn_cursiva   = _boton_formato("I", "Cursiva (Ctrl+I)", cursiva=True)
+        self._btn_subrayado = _boton_formato("U", "Subrayado (Ctrl+U)", subrayado=True)
+        self._btn_tachado   = _boton_formato("S", "Tachado", tachado=True)
+        self._btn_subindice = _boton_formato("x₂", "Subíndice", ancho=34)
+        self._btn_superind  = _boton_formato("x²", "Superíndice", ancho=34)
 
         self._btn_negrita.clicked.connect(self.negrita_solicitada)
         self._btn_cursiva.clicked.connect(self.cursiva_solicitada)
         self._btn_subrayado.clicked.connect(self.subrayado_solicitado)
         self._btn_tachado.clicked.connect(self.tachado_solicitado)
+        self._btn_subindice.clicked.connect(self.subindice_solicitado)
+        self._btn_superind.clicked.connect(self.superindice_solicitado)
 
-        for btn in [self._btn_negrita, self._btn_cursiva,
-                    self._btn_subrayado, self._btn_tachado]:
+        for btn in (self._btn_negrita, self._btn_cursiva, self._btn_subrayado,
+                    self._btn_tachado, self._btn_subindice, self._btn_superind):
             layout.addWidget(btn)
 
         layout.addWidget(_separador_vertical())
 
-        # ── Grupo: Encabezados ───────────────────────────────────────────────
+        # ── Grupo: Estructura (títulos) ──────────────────────────────────────
         self._combo_encabezado = QComboBox()
-        self._combo_encabezado.setToolTip("Nivel de encabezado")
-        self._combo_encabezado.setFixedWidth(80)
-        self._combo_encabezado.addItem("Párrafo")
-        for i in range(1, 7):
-            self._combo_encabezado.addItem(f"H{i}")
+        self._combo_encabezado.setToolTip("Nivel de título")
+        self._combo_encabezado.setFixedWidth(140)
+        self._combo_encabezado.addItem("Texto normal")
+        self._combo_encabezado.addItem("Título (capítulo)")
+        self._combo_encabezado.addItem("Sección")
+        self._combo_encabezado.addItem("Subsección")
         self._combo_encabezado.currentIndexChanged.connect(self._al_cambiar_encabezado)
         layout.addWidget(self._combo_encabezado)
 
+        self._btn_cita = _boton_formato("❝", "Cita / epígrafe")
+        self._btn_cita.clicked.connect(self.cita_solicitada)
+        layout.addWidget(self._btn_cita)
+
         layout.addWidget(_separador_vertical())
 
-        # ── Grupo: Listas y citas ────────────────────────────────────────────
-        self._btn_lista_v = _boton_formato("≡", "Lista con viñetas")
-        self._btn_lista_n = _boton_formato("1.", "Lista numerada", ancho=36)
-        self._btn_cita    = _boton_formato("❝", "Cita")
+        # ── Grupo: Listas ────────────────────────────────────────────────────
+        self._btn_lista_v = _boton_formato("•", "Lista con viñetas")
+        self._btn_lista_n = _boton_formato("1.", "Lista numerada", ancho=34)
+        self._btn_sang_mas = _boton_formato("⇥", "Aumentar nivel / sangría (Tab)", ancho=32)
+        self._btn_sang_men = _boton_formato("⇤", "Disminuir nivel / sangría (Mayús+Tab)", ancho=32)
 
         self._btn_lista_v.clicked.connect(self.lista_viñeta_solicitada)
         self._btn_lista_n.clicked.connect(self.lista_num_solicitada)
-        self._btn_cita.clicked.connect(self.cita_solicitada)
+        self._btn_sang_mas.clicked.connect(self.sangria_aumentar_sol)
+        self._btn_sang_men.clicked.connect(self.sangria_disminuir_sol)
 
-        for btn in [self._btn_lista_v, self._btn_lista_n, self._btn_cita]:
+        for btn in (self._btn_lista_v, self._btn_lista_n,
+                    self._btn_sang_mas, self._btn_sang_men):
             layout.addWidget(btn)
 
         layout.addWidget(_separador_vertical())
 
-        # ── Grupo: Código ────────────────────────────────────────────────────
-        self._btn_codigo    = _boton_formato("</>", "Código en línea", ancho=40)
-        self._btn_blq_cod   = _boton_formato("```", "Bloque de código", ancho=40)
+        # ── Grupo: Tipografía de uso frecuente (acceso rápido) ───────────────
+        # Rayas y comillas más habituales en novela, también disponibles en Ω.
+        self._btn_guion_largo = _boton_formato("—", "Raya / guion largo (em dash)")
+        self._btn_guion_corto = _boton_formato("–", "Guion corto (en dash)")
+        self._btn_com_esp     = _boton_formato("«»", "Comillas españolas (angulares)", ancho=36)
+        self._btn_com_ing     = _boton_formato('“”', "Comillas inglesas (dobles)", ancho=36)
 
-        self._btn_codigo.clicked.connect(self.codigo_linea_solicitado)
-        self._btn_blq_cod.clicked.connect(self.bloque_codigo_solicitado)
+        self._btn_guion_largo.clicked.connect(lambda: self.caracter_solicitado.emit("—"))
+        self._btn_guion_corto.clicked.connect(lambda: self.caracter_solicitado.emit("–"))
+        self._btn_com_esp.clicked.connect(lambda: self.envolver_solicitado.emit("«", "»"))
+        self._btn_com_ing.clicked.connect(lambda: self.envolver_solicitado.emit("“", "”"))
 
-        for btn in [self._btn_codigo, self._btn_blq_cod]:
+        for btn in (self._btn_guion_largo, self._btn_guion_corto,
+                    self._btn_com_esp, self._btn_com_ing):
             layout.addWidget(btn)
 
         layout.addWidget(_separador_vertical())
 
-        # ── Grupo: Enlace y separador ────────────────────────────────────────
-        self._btn_enlace = _boton_formato("🔗", "Insertar enlace", ancho=36)
-        self._btn_sep    = _boton_formato("─", "Separador horizontal (---)", ancho=36)
-
-        self._btn_enlace.clicked.connect(self.enlace_solicitado)
+        # ── Grupo: Separador de escena y caracteres especiales ───────────────
+        self._btn_sep = _boton_formato("✻", "Separador de escena (* * *)", ancho=34)
         self._btn_sep.clicked.connect(self.separador_solicitado)
+        layout.addWidget(self._btn_sep)
 
-        for btn in [self._btn_enlace, self._btn_sep]:
-            layout.addWidget(btn)
+        self._btn_caracteres = QToolButton()
+        self._btn_caracteres.setText("Ω")
+        self._btn_caracteres.setToolTip("Más caracteres especiales")
+        self._btn_caracteres.setFixedHeight(28)
+        self._btn_caracteres.setCursor(Qt.CursorShape.PointingHandCursor)
+        self._btn_caracteres.setPopupMode(QToolButton.ToolButtonPopupMode.InstantPopup)
+        self._btn_caracteres.setMenu(self._crear_menu_caracteres())
+        layout.addWidget(self._btn_caracteres)
 
-        layout.addWidget(_separador_vertical())
-
-        # ── Grupo: Símbolos literarios ───────────────────────────────────────
-        self._btn_guion_largo  = _boton_formato("—", "Guion largo (em dash)")
-        self._btn_guion_corto  = _boton_formato("–", "Guion corto (en dash)")
-        self._btn_com_esp      = _boton_formato("«»", "Comillas españolas", ancho=36)
-        self._btn_com_ing      = _boton_formato('""', "Comillas inglesas", ancho=36)
-        self._btn_puntos       = _boton_formato("…", "Puntos suspensivos")
-
-        self._btn_guion_largo.clicked.connect(self.guion_largo_solicitado)
-        self._btn_guion_corto.clicked.connect(self.guion_corto_solicitado)
-        self._btn_com_esp.clicked.connect(self.comillas_esp_solicitadas)
-        self._btn_com_ing.clicked.connect(self.comillas_ing_solicitadas)
-        self._btn_puntos.clicked.connect(self.puntos_suspension_sol)
-
-        for btn in [self._btn_guion_largo, self._btn_guion_corto,
-                    self._btn_com_esp, self._btn_com_ing, self._btn_puntos]:
-            layout.addWidget(btn)
-
-        # Espaciador al final
         layout.addStretch(1)
-
         outer.addWidget(fila)
 
         # Separador inferior visible entre la barra de formato y el editor
@@ -189,14 +230,139 @@ class BarraHerramientas(QWidget):
         linea.setObjectName("SeparadorBarraFormato")
         outer.addWidget(linea)
 
+    # ─── Selector de fuentes ──────────────────────────────────────────────────
+
+    def _crear_combo_fuentes(self) -> QComboBox:
+        """Combo de fuentes con encabezados de grupo no seleccionables."""
+        combo = QComboBox()
+        combo.setToolTip("Tipografía del editor")
+        combo.setFixedWidth(170)
+        modelo = QStandardItemModel(combo)
+
+        actual = self._config.fuente_familia
+        indice_actual = -1
+        for titulo, familias in grupos_para_selector():
+            cabecera = QStandardItem(f"— {titulo} —")
+            cabecera.setFlags(Qt.ItemFlag.NoItemFlags)   # no seleccionable
+            modelo.appendRow(cabecera)
+            for fam in familias:
+                item = QStandardItem(fam)
+                # Mostrar cada nombre con su propia tipografía
+                fuente = item.font()
+                fuente.setFamily(fam)
+                item.setFont(fuente)
+                modelo.appendRow(item)
+                if fam == actual:
+                    indice_actual = modelo.rowCount() - 1
+
+        combo.setModel(modelo)
+        combo.blockSignals(True)
+        if indice_actual >= 0:
+            combo.setCurrentIndex(indice_actual)
+        else:
+            # Si la fuente configurada no está en la lista, añadirla al final
+            combo.addItem(actual)
+            combo.setCurrentText(actual)
+        combo.blockSignals(False)
+        return combo
+
+    def _seleccionar_tamano_inicial(self) -> None:
+        actual = str(self._config.fuente_tamanio)
+        idx = self._combo_tamano.findText(actual)
+        self._combo_tamano.blockSignals(True)
+        if idx >= 0:
+            self._combo_tamano.setCurrentIndex(idx)
+        else:
+            self._combo_tamano.setCurrentText(actual)
+        self._combo_tamano.blockSignals(False)
+
+    def _al_cambiar_fuente(self, familia: str) -> None:
+        if familia and not familia.startswith("—"):
+            self.fuente_cambiada.emit(familia)
+
+    def _al_cambiar_tamano(self, texto: str) -> None:
+        try:
+            valor = int(texto)
+        except ValueError:
+            return
+        if 6 <= valor <= 96:
+            self.tamano_cambiado.emit(valor)
+
+    # ─── Submenú de caracteres especiales ─────────────────────────────────────
+
+    def _crear_menu_caracteres(self) -> QMenu:
+        """Construye el menú de caracteres tipográficos útiles para novela."""
+        menu = QMenu(self)
+
+        rayas = [
+            ("—", "Raya de diálogo / inciso", "—"),
+            ("–", "Guion (rangos: 1820–1830)", "–"),
+        ]
+        puntuacion = [
+            ("…", "Puntos suspensivos", "…"),
+            ("¿", "Apertura de interrogación", "¿"),
+            ("¡", "Apertura de exclamación", "¡"),
+            ("’", "Apóstrofo tipográfico", "’"),
+        ]
+        ornamentos = [
+            ("* * *", "Separador de escena", "\n\n* * *\n\n"),
+            ("⁂", "Asterismo", "⁂"),
+            ("❧", "Fleurón (hoja)", "❧"),
+            ("†", "Cruz / daga", "†"),
+            ("‡", "Doble daga", "‡"),
+            ("§", "Signo de sección", "§"),
+        ]
+        comillas = [
+            ("«»", "Comillas latinas (angulares)", "«", "»"),
+            ("“”", "Comillas inglesas (dobles)", "“", "”"),
+            ("‘’", "Comillas simples", "‘", "’"),
+        ]
+
+        menu.addSection("Rayas y guiones")
+        self._añadir_inserciones(menu, rayas)
+        menu.addSection("Comillas")
+        self._añadir_envoltorios(menu, comillas)
+        menu.addSection("Puntuación")
+        self._añadir_inserciones(menu, puntuacion)
+        menu.addSection("Ornamentos y símbolos")
+        self._añadir_inserciones(menu, ornamentos)
+        return menu
+
+    def _añadir_inserciones(self, menu: QMenu, items) -> None:
+        for simbolo, descripcion, texto in items:
+            accion = menu.addAction(f"{simbolo}\t{descripcion}")
+            accion.triggered.connect(
+                lambda _=False, t=texto: self.caracter_solicitado.emit(t)
+            )
+
+    def _añadir_envoltorios(self, menu: QMenu, items) -> None:
+        for simbolo, descripcion, apertura, cierre in items:
+            accion = menu.addAction(f"{simbolo}\t{descripcion}")
+            accion.triggered.connect(
+                lambda _=False, a=apertura, c=cierre:
+                    self.envolver_solicitado.emit(a, c)
+            )
+
+    # ─── Encabezados ──────────────────────────────────────────────────────────
+
     def _al_cambiar_encabezado(self, indice: int) -> None:
-        """
-        Índice 0 = párrafo (sin encabezado), 1-6 = H1-H6.
-        Solo emite la señal si se seleccionó un encabezado real.
-        """
+        """1 = título (H1), 2 = sección (H2), 3 = subsección (H3)."""
         if indice > 0:
             self.encabezado_solicitado.emit(indice)
-            # Resetear el combo para que se pueda aplicar de nuevo
             self._combo_encabezado.blockSignals(True)
             self._combo_encabezado.setCurrentIndex(0)
             self._combo_encabezado.blockSignals(False)
+
+    # ─── API para sincronizar con la configuración ───────────────────────────
+
+    def reflejar_fuente(self, familia: str, tamano: int) -> None:
+        """Actualiza los selectores sin reemitir señales (p. ej. tras zoom)."""
+        self._combo_fuente.blockSignals(True)
+        idx = self._combo_fuente.findText(familia)
+        if idx >= 0:
+            self._combo_fuente.setCurrentIndex(idx)
+        self._combo_fuente.blockSignals(False)
+
+        self._combo_tamano.blockSignals(True)
+        self._combo_tamano.setCurrentText(str(tamano))
+        self._combo_tamano.blockSignals(False)

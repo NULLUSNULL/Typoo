@@ -105,6 +105,9 @@ class PanelMetadatos(QWidget):
         self._form.setFieldGrowthPolicy(
             QFormLayout.FieldGrowthPolicy.AllNonFixedFieldsGrow
         )
+        # Si el panel es estrecho, la etiqueta pasa arriba y el campo debajo
+        # (evita que etiqueta y campo se solapen).
+        self._form.setRowWrapPolicy(QFormLayout.RowWrapPolicy.WrapLongRows)
         cont_layout.addWidget(self._form_widget)
 
         cont_layout.addStretch(1)
@@ -152,6 +155,10 @@ class PanelMetadatos(QWidget):
             elem = self._form.takeAt(0)
             w = elem.widget()
             if w is not None:
+                # Desvincular de inmediato (evita «fantasmas» superpuestos si el
+                # formulario se reconstruye antes de que deleteLater se procese).
+                w.hide()
+                w.setParent(None)
                 w.deleteLater()
 
     def _construir_campos(self, campos: list[CampoMeta], valores: dict) -> None:

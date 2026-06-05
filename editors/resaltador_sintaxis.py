@@ -50,34 +50,35 @@ class ResaltadorMarkdown(QSyntaxHighlighter):
     código, enlaces, citas y listas.
     """
 
-    # ─── Paleta de colores oscura (por defecto) ───────────────────────────────
+    # ─── Paleta literaria oscura (por defecto) ────────────────────────────────
+    # Tonos discretos: el texto manda, los marcadores Markdown se atenúan.
     COLORES_OSCURO = {
-        "encabezado":  "#61AFEF",
-        "negrita":     "#E5C07B",
-        "cursiva":     "#C678DD",
-        "codigo":      "#98C379",
-        "fondo_codigo":"#2C2C2C",
-        "enlace":      "#56B6C2",
-        "cita":        "#7F848E",
-        "lista":       "#E06C75",
-        "hr":          "#4B5263",
-        "metadato":    "#ABB2BF",
-        "html":        "#7F848E",
+        "encabezado":  "#C9A86A",   # títulos en tono pergamino cálido
+        "negrita":     None,        # solo peso, sin color
+        "cursiva":     None,        # solo cursiva, sin color
+        "codigo":      "#9AA0A6",
+        "fondo_codigo":"#26262A",
+        "enlace":      "#7FA8C9",
+        "cita":        "#8A8F98",
+        "lista":       "#9AA0A6",
+        "hr":          "#4A4A4F",
+        "metadato":    "#A0A0A6",
+        "html":        "#6E6E73",
     }
 
-    # ─── Paleta de colores clara ──────────────────────────────────────────────
+    # ─── Paleta literaria clara ───────────────────────────────────────────────
     COLORES_CLARO = {
-        "encabezado":  "#0070BB",
-        "negrita":     "#B45309",
-        "cursiva":     "#7C3AED",
-        "codigo":      "#16A34A",
-        "fondo_codigo":"#F0F0F0",
-        "enlace":      "#0891B2",
-        "cita":        "#6B7280",
-        "lista":       "#DC2626",
-        "hr":          "#9CA3AF",
-        "metadato":    "#374151",
-        "html":        "#9CA3AF",
+        "encabezado":  "#8A6D3B",   # títulos en sepia
+        "negrita":     None,
+        "cursiva":     None,
+        "codigo":      "#6E6E73",
+        "fondo_codigo":"#F0F0F2",
+        "enlace":      "#2C6E9A",
+        "cita":        "#8A8F98",
+        "lista":       "#9A9AA0",
+        "hr":          "#C7C7CC",
+        "metadato":    "#4A4A4F",
+        "html":        "#9A9AA0",
     }
 
     def __init__(self, documento: QTextDocument, tema_oscuro: bool = True) -> None:

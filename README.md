@@ -12,11 +12,12 @@
 | Área | Descripción |
 |------|-------------|
 | Dossier del proyecto | Estructura tipo dossier: **Manuscrito** (capítulos→escenas), **Personajes**, **Ubicaciones** y **Notas e investigación**. El orden de lectura es el del Manuscrito de arriba abajo |
-| Editor Markdown | Resaltado de sintaxis, numeración de líneas, zoom con Ctrl+rueda |
+| Editor literario | Tipografía con serifas, columna de lectura centrada, interlineado amplio, resaltado de sintaxis discreto y zoom con Ctrl+rueda |
+| Tipografías empaquetadas | Fuentes literarias incluidas (Lora, EB Garamond, Literata, Crimson Pro, Spectral, Bitter, Playfair Display, Inter), seleccionables desde la barra de formato |
 | Múltiples áreas de trabajo | Hasta 3 editores simultáneos con splitters redimensionables |
 | Panel de detalles | Metadatos propios de cada tipo de elemento según la pestaña con foco; las escenas se vinculan a personajes, ubicaciones y tramas con selectores explícitos |
 | Visor de tramas | Rejilla *story grid* (escenas × entidad) coloreada por trama: muestra qué escenas desarrollan cada **trama**, en qué escenas aparece cada **personaje** y dónde ocurre cada **ubicación** |
-| Barra de formato | Negrita, cursiva, encabezados, listas, citas, código, símbolos literarios |
+| Barra de formato | Tipografía y tamaño, negrita/cursiva/subrayado/tachado, sub/superíndice, encabezados, citas, listas con sangría multinivel (Tab/Mayús+Tab), separador de escena y caracteres especiales (guiones, comillas españolas/inglesas, símbolos) |
 | Búsqueda | Simple, con regex y búsqueda en todo el proyecto |
 | Exportación | Word (.docx), PDF y texto plano (.txt) |
 | Temas | Oscuro (defecto) y claro tipo macOS, intercambiables con Ctrl+Shift+T |
@@ -187,6 +188,7 @@ Typoo/
 │   ├── constantes.py            # Constantes y enumeraciones globales
 │   ├── configuracion.py         # Configuración persistente (QSettings)
 │   ├── metadatos.py             # Esquema de metadatos por tipo de elemento
+│   ├── fuentes.py               # Registro de tipografías empaquetadas y catálogo
 │   └── logger.py                # Sistema de logging
 │
 ├── models/
@@ -200,8 +202,8 @@ Typoo/
 │   └── busqueda.py              # Búsqueda y reemplazo (regex)
 │
 ├── editors/
-│   ├── resaltador_sintaxis.py   # QSyntaxHighlighter para Markdown
-│   └── editor_markdown.py       # QPlainTextEdit con números de línea
+│   ├── resaltador_sintaxis.py   # QSyntaxHighlighter para Markdown (discreto)
+│   └── editor_markdown.py       # Editor literario: serifas, columna centrada, formato
 │
 ├── widgets/
 │   ├── explorador_proyecto.py   # Árbol lateral del dossier (QTreeWidget)
@@ -228,7 +230,8 @@ Typoo/
 │   └── exportador_txt.py        # Exportación a texto plano
 │
 └── assets/
-    └── iconos/                  # SVGs para flechas de SpinBox y árbol de proyecto
+    ├── iconos/                  # SVGs para flechas de SpinBox y árbol de proyecto
+    └── fonts/                   # Tipografías literarias empaquetadas (SIL OFL) + licencias
 ```
 
 ---
