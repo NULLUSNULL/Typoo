@@ -113,7 +113,8 @@ El árbol del proyecto sigue una estructura de **dossier** con cuatro secciones 
 
 - Los **capítulos** son carpetas (sin texto propio) y las **escenas** son los documentos que viven dentro de ellos.
 - El **orden de lectura** de la novela es el del árbol del *Manuscrito* leído de arriba abajo.
-- El menú contextual del explorador ofrece la creación pertinente según el contenedor (capítulos en *Manuscrito*, escenas dentro de un capítulo, etc.).
+- El menú contextual del explorador ofrece la creación pertinente según el contenedor (capítulos en *Manuscrito*, escenas dentro de un capítulo, etc.). Al crear una escena desde *Proyecto → Nueva escena* se pregunta a qué capítulo añadirla.
+- **Reordenación por arrastre**: se pueden reordenar y reorganizar elementos dentro de su misma sección (reordenar capítulos, mover escenas entre capítulos, ordenar personajes/ubicaciones…). No se permite mezclar secciones. El nuevo orden se guarda y actualiza el orden de lectura.
 
 ---
 

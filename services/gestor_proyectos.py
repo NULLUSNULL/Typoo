@@ -131,6 +131,46 @@ class GestorProyectos:
         logger.info("Elemento creado: %s (%s)", nombre, tipo.value)
         return nuevo_item
 
+    def mover_elemento(self, origen_id: str, nuevo_padre_id: str, indice: int) -> bool:
+        """
+        Reubica un elemento bajo `nuevo_padre_id` en la posición `indice`,
+        actualizando padre y orden de los hermanos. No mueve archivos en disco
+        (la jerarquía la da el árbol; los documentos viven en su subdirectorio).
+        """
+        if not self._proyecto_activo:
+            return False
+        proyecto = self._proyecto_activo
+        origen = proyecto.buscar_item(origen_id)
+        nuevo_padre = proyecto.buscar_item(nuevo_padre_id)
+        if not origen or not nuevo_padre or not origen.padre_id:
+            return False
+        # Evitar mover un contenedor dentro de sí mismo o de un descendiente.
+        if origen is nuevo_padre or origen.buscar_descendiente(nuevo_padre_id):
+            return False
+
+        viejo_padre = proyecto.buscar_item(origen.padre_id)
+        if not viejo_padre:
+            return False
+
+        # Si se reordena dentro del mismo padre y el destino está después del
+        # origen, el índice se desplaza al quitarlo primero.
+        if viejo_padre.id == nuevo_padre.id:
+            actual = next((i for i, h in enumerate(nuevo_padre.hijos)
+                           if h.id == origen_id), None)
+            if actual is not None and actual < indice:
+                indice -= 1
+
+        viejo_padre.eliminar_hijo(origen_id)
+        indice = max(0, min(indice, len(nuevo_padre.hijos)))
+        origen.padre_id = nuevo_padre.id
+        nuevo_padre.hijos.insert(indice, origen)
+        for j, h in enumerate(nuevo_padre.hijos):
+            h.orden = j
+
+        proyecto.guardar()
+        logger.info("Elemento movido: %s → %s [%d]", origen.nombre, nuevo_padre.nombre, indice)
+        return True
+
     def renombrar_elemento(self, item_id: str, nuevo_nombre: str) -> bool:
         """Renombra un item sin mover su archivo en disco."""
         if not self._proyecto_activo:
