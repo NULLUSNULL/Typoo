@@ -21,6 +21,7 @@ from PySide6.QtWidgets import (
 
 from core.metadatos import CampoMeta, esquema_para, etiqueta_tipo
 from models.documento import ItemProyecto
+from widgets.selector_multiple import SelectorMultiple
 
 
 class PanelMetadatos(QWidget):
@@ -36,10 +37,19 @@ class PanelMetadatos(QWidget):
     def __init__(self, parent: Optional[QWidget] = None) -> None:
         super().__init__(parent)
         self._item: Optional[ItemProyecto] = None
+        self._proyecto = None
         self._cargando = False
         self._editores: dict[str, QWidget] = {}
         self._construir_ui()
         self.mostrar_item(None)
+
+    def establecer_proyecto(self, proyecto) -> None:
+        """Inyecta el proyecto para resolver referencias (personajes, tramas…)."""
+        self._proyecto = proyecto
+
+    def refrescar(self) -> None:
+        """Reconstruye el panel (p. ej. al cambiar personajes/tramas disponibles)."""
+        self.mostrar_item(self._item)
 
     # ─── Construcción de la interfaz ──────────────────────────────────────────
 
@@ -187,6 +197,26 @@ class PanelMetadatos(QWidget):
             w.valueChanged.connect(lambda v, c=campo.clave: self._al_cambiar(c, v))
             return w
 
+        if campo.tipo == "ref":
+            w = QComboBox()
+            w.addItem("—", "")
+            for oid, etiqueta in self._opciones_fuente(campo.fuente):
+                w.addItem(etiqueta, oid)
+            idx = w.findData(valor) if valor else 0
+            w.setCurrentIndex(idx if idx >= 0 else 0)
+            w.currentIndexChanged.connect(
+                lambda _i, c=campo.clave, e=w: self._al_cambiar(c, e.currentData())
+            )
+            return w
+
+        if campo.tipo == "multiref":
+            w = SelectorMultiple(placeholder="Ninguno")
+            w.set_opciones(self._opciones_fuente(campo.fuente))
+            if isinstance(valor, list):
+                w.set_seleccion(valor)
+            w.cambiado.connect(lambda ids, c=campo.clave: self._al_cambiar(c, list(ids)))
+            return w
+
         # line (por defecto)
         w = QLineEdit()
         if campo.marcador:
@@ -196,12 +226,27 @@ class PanelMetadatos(QWidget):
         w.textEdited.connect(lambda texto, c=campo.clave: self._al_cambiar(c, texto))
         return w
 
+    # ─── Resolución de opciones (referencias) ─────────────────────────────────
+
+    def _opciones_fuente(self, fuente: str) -> list[tuple[str, str]]:
+        """Devuelve [(id, etiqueta)] de la fuente de referencia indicada."""
+        if self._proyecto is None or not fuente:
+            return []
+        if fuente == "personajes":
+            return [(p.id, p.nombre) for p in self._proyecto.personajes()]
+        if fuente == "ubicaciones":
+            return [(u.id, u.nombre) for u in self._proyecto.ubicaciones()]
+        if fuente == "tramas":
+            return [(t.id, t.nombre) for t in self._proyecto.tramas]
+        return []
+
     # ─── Persistencia de cambios ──────────────────────────────────────────────
 
     def _al_cambiar(self, clave: str, valor) -> None:
         if self._cargando or self._item is None:
             return
-        if valor in ("", None):
+        vacio = valor in ("", None) or (isinstance(valor, list) and not valor)
+        if vacio:
             self._item.metadatos.pop(clave, None)
         else:
             self._item.metadatos[clave] = valor

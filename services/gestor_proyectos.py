@@ -83,10 +83,18 @@ class GestorProyectos:
             logger.error("Padre no encontrado con ID: %s", padre_id)
             return None
 
-        # Determinar subdirectorio según el tipo
+        # Los contenedores (capítulos, carpetas) no tienen archivo propio:
+        # son nodos del árbol que agrupan documentos.
+        if tipo in (TipoElemento.CAPITULO, TipoElemento.CARPETA):
+            nuevo_item = ItemProyecto(nombre=nombre, tipo=tipo, ruta_relativa="")
+            padre.agregar_hijo(nuevo_item)
+            proyecto.guardar()
+            logger.info("Contenedor creado: %s (%s)", nombre, tipo.value)
+            return nuevo_item
+
+        # Determinar subdirectorio en disco según el tipo
         tipo_a_subdir = {
-            TipoElemento.CAPITULO:   "capitulos",
-            TipoElemento.ESCENA:     "escenas",
+            TipoElemento.ESCENA:     "manuscrito",
             TipoElemento.NOTA:       "notas",
             TipoElemento.PERSONAJE:  "personajes",
             TipoElemento.UBICACION:  "ubicaciones",

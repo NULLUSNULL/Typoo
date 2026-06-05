@@ -49,6 +49,7 @@ from widgets.barra_herramientas import BarraHerramientas
 from widgets.explorador_proyecto import ExploradorProyecto
 from widgets.panel_pestanas import PanelPestanas
 from widgets.panel_metadatos import PanelMetadatos
+from widgets.panel_tramas import PanelTramas
 
 
 class VentanaPrincipal(QMainWindow):
@@ -157,6 +158,19 @@ class VentanaPrincipal(QMainWindow):
         self.addDockWidget(Qt.DockWidgetArea.TopDockWidgetArea, dock)
         self._dock_formato = dock
 
+        # Visor de tramas: banda inferior a lo ancho, plegable.
+        self._panel_tramas = PanelTramas()
+        dock_tramas = QDockWidget("Tramas", self)
+        dock_tramas.setObjectName("DockTramas")
+        dock_tramas.setWidget(self._panel_tramas)
+        dock_tramas.setAllowedAreas(
+            Qt.DockWidgetArea.BottomDockWidgetArea |
+            Qt.DockWidgetArea.TopDockWidgetArea
+        )
+        self.addDockWidget(Qt.DockWidgetArea.BottomDockWidgetArea, dock_tramas)
+        dock_tramas.hide()
+        self._dock_tramas = dock_tramas
+
     # ─── Sistema de menús ─────────────────────────────────────────────────────
 
     def _crear_menus(self) -> None:
@@ -247,6 +261,13 @@ class VentanaPrincipal(QMainWindow):
             checkable=True, checked=True,
         )
         m_ver.addAction(self._ac_detalles)
+
+        self._ac_tramas = self._accion(
+            "Visor de tramas", "Ctrl+5",
+            self._alternar_tramas,
+            checkable=True, checked=False,
+        )
+        m_ver.addAction(self._ac_tramas)
 
         m_ver.addSeparator()
 
@@ -358,9 +379,19 @@ class VentanaPrincipal(QMainWindow):
         self._timer_metadatos.setSingleShot(True)
         self._timer_metadatos.setInterval(800)
         self._timer_metadatos.timeout.connect(self._persistir_metadatos)
-        self._panel_metadatos.metadatos_modificados.connect(
-            self._timer_metadatos.start
-        )
+        self._panel_metadatos.metadatos_modificados.connect(self._timer_metadatos.start)
+        # Si cambian los vínculos de una escena, refrescar el visor de tramas
+        self._panel_metadatos.metadatos_modificados.connect(self._panel_tramas.refrescar)
+
+        # Visor de tramas
+        self._panel_tramas.relaciones_modificadas.connect(self._timer_metadatos.start)
+        self._panel_tramas.relaciones_modificadas.connect(self._panel_metadatos.refrescar)
+        self._panel_tramas.tramas_modificadas.connect(self._timer_metadatos.start)
+        self._panel_tramas.tramas_modificadas.connect(self._panel_metadatos.refrescar)
+        self._panel_tramas.escena_activada.connect(self._abrir_item_en_editor)
+
+        # Al crear elementos (personajes, ubicaciones, escenas…) refrescar paneles
+        self._explorador.elemento_creado.connect(self._al_crear_elemento)
 
         # Barra de herramientas de formato
         bh = self._barra_formato
@@ -519,8 +550,16 @@ class VentanaPrincipal(QMainWindow):
         self._panel2.cerrar_todas_pestanas()
         self._panel3.cerrar_todas_pestanas()
         self._explorador.cargar_proyecto(proyecto)
+        self._panel_metadatos.establecer_proyecto(proyecto)
+        self._panel_metadatos.mostrar_item(None)
+        self._panel_tramas.establecer_proyecto(proyecto)
         self.setWindowTitle(f"{proyecto.nombre} — {NOMBRE_APP}")
         self._barra_estado.actualizar_archivo(proyecto.nombre)
+
+    def _al_crear_elemento(self, item, padre_id: str) -> None:
+        """Refresca los paneles que dependen del catálogo de elementos."""
+        self._panel_metadatos.refrescar()
+        self._panel_tramas.refrescar()
 
     # ─── Guardado ─────────────────────────────────────────────────────────────
 
@@ -833,34 +872,54 @@ class VentanaPrincipal(QMainWindow):
     # ─── Creación de elementos desde menú ────────────────────────────────────
 
     def _crear_elemento(self, tipo: TipoElemento) -> None:
+        from models.proyecto import (
+            ROL_MANUSCRITO, ROL_PERSONAJES, ROL_UBICACIONES, ROL_NOTAS,
+        )
         if not self._gestor.hay_proyecto:
             self._mostrar_advertencia("Sin proyecto", "Abre un proyecto primero.")
             return
         proyecto = self._gestor.proyecto_activo
-        subdir_por_tipo = {
-            TipoElemento.CAPITULO:  "capitulos",
-            TipoElemento.ESCENA:    "escenas",
-            TipoElemento.NOTA:      "notas",
-            TipoElemento.PERSONAJE: "personajes",
-            TipoElemento.UBICACION: "ubicaciones",
-        }
-        nombre_carpeta_por_tipo = {
-            TipoElemento.CAPITULO:  "Capítulos",
-            TipoElemento.ESCENA:    "Escenas",
-            TipoElemento.NOTA:      "Notas",
-            TipoElemento.PERSONAJE: "Personajes",
-            TipoElemento.UBICACION: "Ubicaciones",
-        }
-        subdir = subdir_por_tipo.get(tipo, "notas")
-        # Buscar la carpeta de categoría para agregar el elemento ahí
-        padre = proyecto.raiz
-        nombre_carpeta = nombre_carpeta_por_tipo.get(tipo)
-        if nombre_carpeta and proyecto.raiz:
-            for hijo in proyecto.raiz.hijos:
-                if hijo.nombre == nombre_carpeta:
-                    padre = hijo
-                    break
-        self._explorador._crear_elemento(tipo, padre, subdir)
+
+        # Determinar el contenedor de destino según el tipo y el contexto.
+        padre = None
+        if tipo == TipoElemento.CAPITULO:
+            padre = proyecto.carpeta_por_rol(ROL_MANUSCRITO)
+        elif tipo == TipoElemento.ESCENA:
+            padre = self._capitulo_destino(proyecto)
+            if padre is None:
+                self._mostrar_advertencia(
+                    "Sin capítulo",
+                    "Crea primero un capítulo en el Manuscrito para añadir escenas.",
+                )
+                return
+        elif tipo == TipoElemento.PERSONAJE:
+            padre = proyecto.carpeta_por_rol(ROL_PERSONAJES)
+        elif tipo == TipoElemento.UBICACION:
+            padre = proyecto.carpeta_por_rol(ROL_UBICACIONES)
+        elif tipo == TipoElemento.NOTA:
+            padre = proyecto.carpeta_por_rol(ROL_NOTAS)
+
+        if padre is None:
+            padre = proyecto.raiz
+        self._explorador._crear_elemento(tipo, padre, "")
+
+    def _capitulo_destino(self, proyecto) -> Optional[ItemProyecto]:
+        """Capítulo donde crear una escena: el seleccionado o el último del manuscrito."""
+        from models.proyecto import ROL_MANUSCRITO
+        # 1) Si hay un capítulo (o una escena dentro de uno) seleccionado, usarlo.
+        sel = self._explorador.item_seleccionado()
+        nodo = sel
+        while nodo is not None:
+            if nodo.tipo == TipoElemento.CAPITULO:
+                return nodo
+            nodo = proyecto.buscar_item(nodo.padre_id) if nodo.padre_id else None
+        # 2) Si no, el último capítulo del manuscrito.
+        manuscrito = proyecto.carpeta_por_rol(ROL_MANUSCRITO)
+        if manuscrito:
+            capitulos = [h for h in manuscrito.hijos if h.tipo == TipoElemento.CAPITULO]
+            if capitulos:
+                return sorted(capitulos, key=lambda c: c.orden)[-1]
+        return None
 
     # ─── Tema ─────────────────────────────────────────────────────────────────
 
@@ -899,6 +958,13 @@ class VentanaPrincipal(QMainWindow):
         else:
             self.showFullScreen()
 
+    def _alternar_tramas(self) -> None:
+        """Muestra u oculta el visor de tramas (banda inferior)."""
+        mostrar = self._ac_tramas.isChecked()
+        self._dock_tramas.setVisible(mostrar)
+        if mostrar:
+            self._panel_tramas.refrescar()
+
     def _alternar_concentracion(self) -> None:
         """Oculta paneles laterales para centrar la atención en el texto."""
         activo = self._ac_concentracion.isChecked()
@@ -907,6 +973,9 @@ class VentanaPrincipal(QMainWindow):
         self._ac_explorador.setChecked(not activo)
         self._ac_detalles.setChecked(not activo)
         self._dock_formato.setVisible(not activo)
+        if activo:
+            self._dock_tramas.hide()
+            self._ac_tramas.setChecked(False)
         if activo:
             self.showFullScreen()
             self._barra_estado.mostrar_mensaje("Modo concentración activo. Presiona F12 para salir.")

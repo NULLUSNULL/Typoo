@@ -18,9 +18,10 @@ class CampoMeta:
     """Definición de un campo de metadatos."""
     clave: str
     etiqueta: str
-    tipo: str = "line"          # line | multiline | combo | int
+    tipo: str = "line"          # line | multiline | combo | int | ref | multiref
     opciones: tuple[str, ...] = ()
     marcador: str = ""          # placeholder / texto de ayuda
+    fuente: str = ""            # para ref/multiref: "personajes" | "ubicaciones" | "tramas"
 
 
 # Etiqueta legible para cada tipo de elemento.
@@ -48,9 +49,10 @@ ESQUEMAS: dict[TipoElemento, list[CampoMeta]] = {
         CampoMeta("resumen", "Resumen", "multiline", marcador="Sinopsis breve de la escena"),
         CampoMeta("estado", "Estado", "combo",
                   ("Borrador", "En revisión", "Terminada")),
-        CampoMeta("pov", "Punto de vista", "line", marcador="Personaje narrador"),
-        CampoMeta("ubicacion", "Ubicación", "line"),
-        CampoMeta("personajes", "Personajes presentes", "line", marcador="Separados por comas"),
+        CampoMeta("tramas", "Tramas", "multiref", fuente="tramas"),
+        CampoMeta("personajes", "Personajes presentes", "multiref", fuente="personajes"),
+        CampoMeta("ubicacion", "Ubicación", "ref", fuente="ubicaciones"),
+        CampoMeta("pov", "Punto de vista", "ref", fuente="personajes"),
         CampoMeta("momento", "Momento / fecha", "line"),
         CampoMeta("objetivo", "Objetivo de la escena", "multiline",
                   marcador="¿Qué debe conseguir esta escena?"),
