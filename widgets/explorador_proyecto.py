@@ -20,7 +20,10 @@ from PySide6.QtWidgets import (
 from core.constantes import TipoElemento
 from core.logger import logger
 from models.documento import ItemProyecto
-from models.proyecto import Proyecto
+from models.proyecto import (
+    Proyecto,
+    ROL_MANUSCRITO, ROL_PERSONAJES, ROL_UBICACIONES, ROL_NOTAS,
+)
 
 
 # Mapeo de tipo → emoji/símbolo para el árbol
@@ -157,6 +160,11 @@ class ExploradorProyecto(QWidget):
         item_id = nodo.data(0, Qt.ItemDataRole.UserRole)
         return self._proyecto.buscar_item(item_id)
 
+    def item_seleccionado(self) -> Optional[ItemProyecto]:
+        """Devuelve el ItemProyecto del nodo seleccionado, si lo hay."""
+        nodo = self._arbol.currentItem()
+        return self._item_desde_nodo(nodo) if nodo else None
+
     # ─── Menú contextual ──────────────────────────────────────────────────────
 
     def _mostrar_menu_contextual(self, posicion) -> None:
@@ -199,19 +207,34 @@ class ExploradorProyecto(QWidget):
             menu.exec(self._arbol.viewport().mapToGlobal(posicion))
 
     def _agregar_acciones_crear(self, menu: QMenu, padre: ItemProyecto) -> None:
-        """Añade las acciones de creación al menú contextual."""
-        tipos = [
-            ("Nuevo capítulo",   TipoElemento.CAPITULO,  "capitulos"),
-            ("Nueva escena",     TipoElemento.ESCENA,     "escenas"),
-            ("Nueva nota",       TipoElemento.NOTA,       "notas"),
-            ("Nuevo personaje",  TipoElemento.PERSONAJE,  "personajes"),
-            ("Nueva ubicación",  TipoElemento.UBICACION,  "ubicaciones"),
-        ]
-        for etiqueta, tipo, subdir in tipos:
+        """
+        Añade las acciones de creación pertinentes según el contenedor:
+        en «Manuscrito» se crean capítulos, dentro de un capítulo escenas, etc.
+        """
+        acciones: list[tuple[str, TipoElemento, ItemProyecto]] = []
+        rol = padre.metadatos.get("rol")
+
+        if padre.tipo == TipoElemento.CAPITULO:
+            acciones.append(("Nueva escena", TipoElemento.ESCENA, padre))
+        elif rol == ROL_MANUSCRITO:
+            acciones.append(("Nuevo capítulo", TipoElemento.CAPITULO, padre))
+        elif rol == ROL_PERSONAJES:
+            acciones.append(("Nuevo personaje", TipoElemento.PERSONAJE, padre))
+        elif rol == ROL_UBICACIONES:
+            acciones.append(("Nueva ubicación", TipoElemento.UBICACION, padre))
+        elif rol == ROL_NOTAS:
+            acciones.append(("Nueva nota", TipoElemento.NOTA, padre))
+        elif padre.tipo == TipoElemento.PROYECTO:
+            # En la raíz, crear un capítulo directamente en el Manuscrito.
+            manuscrito = self._proyecto.carpeta_por_rol(ROL_MANUSCRITO) if self._proyecto else None
+            if manuscrito is not None:
+                acciones.append(("Nuevo capítulo", TipoElemento.CAPITULO, manuscrito))
+
+        for etiqueta, tipo, destino in acciones:
             accion = QAction(etiqueta, self)
             accion.triggered.connect(
-                lambda checked=False, t=tipo, p=padre, s=subdir:
-                    self._crear_elemento(t, p, s)
+                lambda checked=False, t=tipo, p=destino:
+                    self._crear_elemento(t, p, "")
             )
             menu.addAction(accion)
 
