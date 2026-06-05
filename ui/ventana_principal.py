@@ -48,7 +48,7 @@ from widgets.barra_estado import BarraEstado
 from widgets.barra_herramientas import BarraHerramientas
 from widgets.explorador_proyecto import ExploradorProyecto
 from widgets.panel_pestanas import PanelPestanas
-from widgets.vista_previa import VistaPrevia
+from widgets.panel_metadatos import PanelMetadatos
 
 
 class VentanaPrincipal(QMainWindow):
@@ -61,7 +61,7 @@ class VentanaPrincipal(QMainWindow):
     ├──────────────────────────────────────────────────────────────┤
     │  Barra de herramientas de formato                            │
     ├─────────────────┬──────────────────────────────┬────────────┤
-    │ ExploradorProyecto │  PanelPestanas (1-3 paneles) │ VistaPrevia│
+    │ ExploradorProyecto │  PanelPestanas (1-3 paneles) │ Detalles   │
     ├─────────────────┴──────────────────────────────┴────────────┤
     │  Barra de estado                                             │
     └──────────────────────────────────────────────────────────────┘
@@ -124,13 +124,13 @@ class VentanaPrincipal(QMainWindow):
         self._panel2.hide()
         self._panel3.hide()
 
-        # 3. Vista previa (derecha)
-        self._vista_previa = VistaPrevia()
-        self._vista_previa.setMinimumWidth(ANCHO_MINIMO_VISTA_PREVIA)
+        # 3. Panel de detalles / metadatos (derecha)
+        self._panel_metadatos = PanelMetadatos()
+        self._panel_metadatos.setMinimumWidth(ANCHO_MINIMO_VISTA_PREVIA)
 
         self._splitter_principal.addWidget(self._explorador)
         self._splitter_principal.addWidget(self._splitter_paneles)
-        self._splitter_principal.addWidget(self._vista_previa)
+        self._splitter_principal.addWidget(self._panel_metadatos)
         self._splitter_principal.setSizes([220, 650, 280])
 
         # Barra de estado
@@ -241,12 +241,12 @@ class VentanaPrincipal(QMainWindow):
         )
         m_ver.addAction(self._ac_panel3)
 
-        self._ac_previa = self._accion(
-            "Vista previa", "Ctrl+4",
-            lambda: self._alternar_panel(self._vista_previa, self._ac_previa),
+        self._ac_detalles = self._accion(
+            "Panel de detalles", "Ctrl+4",
+            lambda: self._alternar_panel(self._panel_metadatos, self._ac_detalles),
             checkable=True, checked=True,
         )
-        m_ver.addAction(self._ac_previa)
+        m_ver.addAction(self._ac_detalles)
 
         m_ver.addSeparator()
 
@@ -343,13 +343,24 @@ class VentanaPrincipal(QMainWindow):
 
         # Paneles de edición
         for num, panel in enumerate((self._panel1, self._panel2, self._panel3), start=1):
-            panel.editor_cambiado.connect(self._al_cambiar_editor)
+            panel.editor_cambiado.connect(
+                lambda editor, p=panel: self._al_cambiar_editor(editor, p)
+            )
             panel.palabras_actualizadas.connect(self._barra_estado.actualizar_palabras)
             panel.documento_modificado.connect(self._al_documento_modificado)
             panel.mover_a_panel.connect(
                 lambda item, destino, origen=panel:
                     self._mover_a_panel(item, origen, destino)
             )
+
+        # Panel de detalles: guardar los metadatos editados (con retardo)
+        self._timer_metadatos = QTimer(self)
+        self._timer_metadatos.setSingleShot(True)
+        self._timer_metadatos.setInterval(800)
+        self._timer_metadatos.timeout.connect(self._persistir_metadatos)
+        self._panel_metadatos.metadatos_modificados.connect(
+            self._timer_metadatos.start
+        )
 
         # Barra de herramientas de formato
         bh = self._barra_formato
@@ -418,10 +429,7 @@ class VentanaPrincipal(QMainWindow):
         editor.cursorPositionChanged.connect(
             lambda: self._actualizar_posicion_cursor(editor)
         )
-        editor.textChanged.connect(
-            lambda: self._actualizar_vista_previa(editor)
-        )
-        self._actualizar_vista_previa(editor)
+        self._panel_metadatos.mostrar_item(item)
         self._barra_estado.actualizar_archivo(item.nombre)
 
     def _mover_a_panel(
@@ -447,9 +455,7 @@ class VentanaPrincipal(QMainWindow):
         editor.cursorPositionChanged.connect(
             lambda: self._actualizar_posicion_cursor(editor)
         )
-        editor.textChanged.connect(
-            lambda: self._actualizar_vista_previa(editor)
-        )
+        self._panel_metadatos.mostrar_item(item)
 
     # ─── Fuente del editor ────────────────────────────────────────────────────
 
@@ -597,18 +603,17 @@ class VentanaPrincipal(QMainWindow):
         editor.cursorPositionChanged.connect(
             lambda: self._actualizar_posicion_cursor(editor)
         )
-        editor.textChanged.connect(
-            lambda: self._actualizar_vista_previa(editor)
-        )
-        self._actualizar_vista_previa(editor)
+        self._panel_metadatos.mostrar_item(item)
         self._barra_estado.actualizar_archivo(item.nombre)
 
     def _al_seleccionar_item(self, item: ItemProyecto) -> None:
-        pass  # Se puede usar para mostrar metadatos en el futuro
+        pass  # La selección en el árbol no cambia el panel de detalles (lo hace la pestaña con foco)
 
-    def _al_cambiar_editor(self, editor) -> None:
+    def _al_cambiar_editor(self, editor, panel=None) -> None:
         self._barra_estado.actualizar_palabras(editor.contar_palabras())
-        self._actualizar_vista_previa(editor)
+        # Mostrar los metadatos del documento de la pestaña con foco
+        if panel is not None:
+            self._panel_metadatos.mostrar_item(panel.item_activo())
 
     def _al_documento_modificado(self, nombre: str, modificado: bool) -> None:
         self._barra_estado.actualizar_modificado(modificado)
@@ -619,9 +624,11 @@ class VentanaPrincipal(QMainWindow):
         col    = cursor.columnNumber() + 1
         self._barra_estado.actualizar_posicion(linea, col)
 
-    def _actualizar_vista_previa(self, editor) -> None:
-        if not self._vista_previa.isHidden():
-            self._vista_previa.actualizar(editor.toPlainText())
+    def _persistir_metadatos(self) -> None:
+        """Guarda el proyecto para conservar los metadatos editados."""
+        if self._gestor.hay_proyecto:
+            self._gestor.guardar_proyecto()
+            self._barra_estado.mostrar_mensaje("Detalles guardados.", 1500)
 
     # ─── Acciones de edición ──────────────────────────────────────────────────
 
@@ -893,12 +900,12 @@ class VentanaPrincipal(QMainWindow):
             self.showFullScreen()
 
     def _alternar_concentracion(self) -> None:
-        """Oculta explorador y vista previa para centrar la atención en el texto."""
+        """Oculta paneles laterales para centrar la atención en el texto."""
         activo = self._ac_concentracion.isChecked()
         self._explorador.setVisible(not activo)
-        self._vista_previa.setVisible(not activo)
+        self._panel_metadatos.setVisible(not activo)
         self._ac_explorador.setChecked(not activo)
-        self._ac_previa.setChecked(not activo)
+        self._ac_detalles.setChecked(not activo)
         self._dock_formato.setVisible(not activo)
         if activo:
             self.showFullScreen()

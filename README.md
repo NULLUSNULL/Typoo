@@ -14,7 +14,7 @@
 | Gestión de proyectos | Árbol jerárquico: capítulos, escenas, notas, personajes, ubicaciones |
 | Editor Markdown | Resaltado de sintaxis, numeración de líneas, zoom con Ctrl+rueda |
 | Múltiples áreas de trabajo | Hasta 3 editores simultáneos con splitters redimensionables |
-| Vista previa HTML | Renderizado Markdown en tiempo real en el panel derecho |
+| Panel de detalles | Metadatos propios de cada tipo de elemento (escena, personaje, ubicación, capítulo, nota) en la barra lateral derecha, según la pestaña con foco |
 | Barra de formato | Negrita, cursiva, encabezados, listas, citas, código, símbolos literarios |
 | Búsqueda | Simple, con regex y búsqueda en todo el proyecto |
 | Exportación | Word (.docx), PDF y texto plano (.txt) |
@@ -134,6 +134,7 @@ Typoo/
 ├── core/
 │   ├── constantes.py            # Constantes y enumeraciones globales
 │   ├── configuracion.py         # Configuración persistente (QSettings)
+│   ├── metadatos.py             # Esquema de metadatos por tipo de elemento
 │   └── logger.py                # Sistema de logging
 │
 ├── models/
@@ -154,7 +155,7 @@ Typoo/
 │   ├── explorador_proyecto.py   # Árbol lateral (QTreeWidget)
 │   ├── barra_herramientas.py    # Barra de formato Markdown con separador inferior
 │   ├── panel_pestanas.py        # Contenedor de pestañas con botón × de cierre
-│   ├── vista_previa.py          # Vista HTML (QTextBrowser)
+│   ├── panel_metadatos.py       # Panel lateral de detalles/metadatos del elemento
 │   └── barra_estado.py          # Barra de estado inferior (QStatusBar)
 │
 ├── ui/
