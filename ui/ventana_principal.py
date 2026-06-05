@@ -367,6 +367,8 @@ class VentanaPrincipal(QMainWindow):
             panel.editor_cambiado.connect(
                 lambda editor, p=panel: self._al_cambiar_editor(editor, p)
             )
+            # Los Detalles siguen siempre al item activo (None si el panel se vacía)
+            panel.item_activo_cambiado.connect(self._panel_metadatos.mostrar_item)
             panel.palabras_actualizadas.connect(self._barra_estado.actualizar_palabras)
             panel.documento_modificado.connect(self._al_documento_modificado)
             panel.mover_a_panel.connect(
@@ -649,10 +651,9 @@ class VentanaPrincipal(QMainWindow):
         pass  # La selección en el árbol no cambia el panel de detalles (lo hace la pestaña con foco)
 
     def _al_cambiar_editor(self, editor, panel=None) -> None:
+        # El panel de Detalles se sincroniza vía item_activo_cambiado; aquí
+        # solo actualizamos el conteo de palabras de la barra de estado.
         self._barra_estado.actualizar_palabras(editor.contar_palabras())
-        # Mostrar los metadatos del documento de la pestaña con foco
-        if panel is not None:
-            self._panel_metadatos.mostrar_item(panel.item_activo())
 
     def _al_documento_modificado(self, nombre: str, modificado: bool) -> None:
         self._barra_estado.actualizar_modificado(modificado)

@@ -29,6 +29,7 @@ class PanelPestanas(QTabWidget):
 
     # Señales
     editor_cambiado        = Signal(object)     # EditorMarkdown activo cambia
+    item_activo_cambiado   = Signal(object)     # ItemProyecto activo (o None si vacío)
     documento_modificado   = Signal(str, bool)  # (nombre_archivo, modificado)
     palabras_actualizadas  = Signal(int)        # conteo de palabras del editor activo
     mover_a_panel          = Signal(object, int) # (ItemProyecto, panel_destino 1|2|3)
@@ -89,6 +90,7 @@ class PanelPestanas(QTabWidget):
             lambda mod, nombre=item.nombre: self._al_modificarse(mod, nombre)
         )
         editor.palabras_cambiadas.connect(self._al_cambiar_palabras)
+        editor.foco_recibido.connect(lambda ed=editor: self._al_foco_editor(ed))
 
         editor.ruta_archivo = item.ruta_relativa
         editor.nombre_archivo = item.nombre
@@ -216,7 +218,17 @@ class PanelPestanas(QTabWidget):
     def _al_cambiar_palabras(self, palabras: int) -> None:
         self.palabras_actualizadas.emit(palabras)
 
+    def _al_foco_editor(self, editor) -> None:
+        """Al ganar el foco un editor, los Detalles siguen a su documento
+        (cubre el caso de cambiar de área sin cambiar de pestaña activa)."""
+        item = self._item_de(editor)
+        if item is not None:
+            self.item_activo_cambiado.emit(item)
+
     def _al_cambiar_pestana(self, indice: int) -> None:
+        # Siempre informar del item activo (None si el panel queda vacío) para
+        # que el panel de Detalles se sincronice incluso al cerrar la última.
+        self.item_activo_cambiado.emit(self.item_activo())
         editor = self.widget(indice)
         if isinstance(editor, EditorMarkdown):
             self.editor_cambiado.emit(editor)

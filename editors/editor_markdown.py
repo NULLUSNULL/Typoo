@@ -56,6 +56,7 @@ class EditorMarkdown(QPlainTextEdit):
     # Señales personalizadas
     palabras_cambiadas = Signal(int)        # Emite el conteo actualizado de palabras
     modificado_cambiado = Signal(bool)      # Emite True cuando hay cambios sin guardar
+    foco_recibido = Signal()                # Emite cuando el editor gana el foco
 
     def __init__(self, parent: Optional[QWidget] = None) -> None:
         super().__init__(parent)
@@ -149,6 +150,10 @@ class EditorMarkdown(QPlainTextEdit):
         self._widget_lineas.setGeometry(
             QRect(cr.left(), cr.top(), self.ancho_numeros_linea(), cr.height())
         )
+
+    def focusInEvent(self, evento) -> None:  # type: ignore[override]
+        super().focusInEvent(evento)
+        self.foco_recibido.emit()
 
     def pintar_numeros_linea(self, evento: QPaintEvent) -> None:
         """Dibuja los números de línea en el widget lateral."""
