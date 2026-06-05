@@ -397,25 +397,31 @@ class VentanaPrincipal(QMainWindow):
         self._explorador.elemento_creado.connect(self._al_crear_elemento)
         self._explorador.elemento_movido.connect(self._al_reorganizar)
 
-        # Barra de herramientas de formato
+        # Barra de formato (orientada a novela)
         bh = self._barra_formato
+        # Tipografía
+        bh.fuente_cambiada.connect(self._cambiar_fuente_editor)
+        bh.tamano_cambiado.connect(self._cambiar_tamano_editor)
+        # Énfasis de carácter
         bh.negrita_solicitada.connect(lambda: self._formato("**", "**"))
         bh.cursiva_solicitada.connect(lambda: self._formato("*", "*"))
         bh.subrayado_solicitado.connect(lambda: self._formato("<u>", "</u>"))
-        bh.tachado_solicitado.connect(lambda: self._formato("~~", "~~"))
+        bh.tachado_solicitado.connect(lambda: self._formato("<s>", "</s>"))
+        bh.subindice_solicitado.connect(lambda: self._formato("<sub>", "</sub>"))
+        bh.superindice_solicitado.connect(lambda: self._formato("<sup>", "</sup>"))
+        # Estructura
         bh.encabezado_solicitado.connect(self._insertar_encabezado)
-        bh.lista_viñeta_solicitada.connect(self._insertar_lista_viñeta)
-        bh.lista_num_solicitada.connect(self._insertar_lista_num)
         bh.cita_solicitada.connect(self._insertar_cita)
-        bh.codigo_linea_solicitado.connect(lambda: self._formato("`", "`"))
-        bh.bloque_codigo_solicitado.connect(lambda: self._formato("```\n", "\n```"))
-        bh.enlace_solicitado.connect(self._insertar_enlace)
+        # Listas y sangría
+        bh.lista_viñeta_solicitada.connect(self._lista_vinetas)
+        bh.lista_num_solicitada.connect(self._lista_numerada)
+        bh.sangria_aumentar_sol.connect(self._sangrar)
+        bh.sangria_disminuir_sol.connect(self._desangrar)
+        # Separador de escena
         bh.separador_solicitado.connect(self._insertar_separador)
-        bh.guion_largo_solicitado.connect(lambda: self._insertar_texto("—"))
-        bh.guion_corto_solicitado.connect(lambda: self._insertar_texto("–"))
-        bh.comillas_esp_solicitadas.connect(lambda: self._formato("«", "»"))
-        bh.comillas_ing_solicitadas.connect(lambda: self._formato("“", "”"))
-        bh.puntos_suspension_sol.connect(lambda: self._insertar_texto("…"))
+        # Caracteres especiales: insertar literal o envolver la selección
+        bh.caracter_solicitado.connect(self._insertar_texto)
+        bh.envolver_solicitado.connect(self._formato)
 
     # ─── Autoguardado ─────────────────────────────────────────────────────────
 
@@ -464,6 +470,7 @@ class VentanaPrincipal(QMainWindow):
         editor.cursorPositionChanged.connect(
             lambda: self._actualizar_posicion_cursor(editor)
         )
+        editor.tamano_zoom_cambiado.connect(self._al_zoom_editor)
         self._panel_metadatos.mostrar_item(item)
         self._barra_estado.actualizar_archivo(item.nombre)
 
@@ -490,18 +497,20 @@ class VentanaPrincipal(QMainWindow):
         editor.cursorPositionChanged.connect(
             lambda: self._actualizar_posicion_cursor(editor)
         )
+        editor.tamano_zoom_cambiado.connect(self._al_zoom_editor)
         self._panel_metadatos.mostrar_item(item)
 
     # ─── Fuente del editor ────────────────────────────────────────────────────
 
     def _aplicar_fuente_editores(self) -> None:
         """Aplica la fuente configurada a todos los editores abiertos."""
-        fuente = QFont(self._config.fuente_familia, self._config.fuente_tamanio)
+        familia = self._config.fuente_familia
+        tamano = self._config.fuente_tamanio
         for panel in (self._panel1, self._panel2, self._panel3):
             for i in range(panel.count()):
                 editor = panel.widget(i)
-                if editor:
-                    editor.setFont(fuente)
+                if editor and hasattr(editor, "aplicar_fuente"):
+                    editor.aplicar_fuente(familia, tamano)
 
     # ─── Gestión de proyectos ─────────────────────────────────────────────────
 
@@ -650,6 +659,7 @@ class VentanaPrincipal(QMainWindow):
         editor.cursorPositionChanged.connect(
             lambda: self._actualizar_posicion_cursor(editor)
         )
+        editor.tamano_zoom_cambiado.connect(self._al_zoom_editor)
         self._panel_metadatos.mostrar_item(item)
         self._barra_estado.actualizar_archivo(item.nombre)
 
@@ -715,15 +725,38 @@ class VentanaPrincipal(QMainWindow):
         if editor:
             editor.insertar_encabezado(nivel)
 
-    def _insertar_lista_viñeta(self) -> None:
+    def _lista_vinetas(self) -> None:
         editor = self._editor_activo()
         if editor:
-            editor.insertar_lista_viñeta()
+            editor.alternar_lista_vinetas()
 
-    def _insertar_lista_num(self) -> None:
+    def _lista_numerada(self) -> None:
         editor = self._editor_activo()
         if editor:
-            editor.insertar_lista_numerada()
+            editor.alternar_lista_numerada()
+
+    def _sangrar(self) -> None:
+        editor = self._editor_activo()
+        if editor:
+            editor.aumentar_sangria()
+
+    def _desangrar(self) -> None:
+        editor = self._editor_activo()
+        if editor:
+            editor.disminuir_sangria()
+
+    def _cambiar_fuente_editor(self, familia: str) -> None:
+        self._config.fuente_familia = familia
+        self._aplicar_fuente_editores()
+
+    def _cambiar_tamano_editor(self, tamano: int) -> None:
+        self._config.fuente_tamanio = tamano
+        self._aplicar_fuente_editores()
+
+    def _al_zoom_editor(self, tamano: int) -> None:
+        """Zoom con Ctrl+rueda: persistir y reflejar en la barra de formato."""
+        self._config.fuente_tamanio = tamano
+        self._barra_formato.reflejar_fuente(self._config.fuente_familia, tamano)
 
     def _insertar_cita(self) -> None:
         editor = self._editor_activo()
