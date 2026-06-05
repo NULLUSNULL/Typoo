@@ -189,6 +189,24 @@ class BarraHerramientas(QWidget):
 
         layout.addWidget(_separador_vertical())
 
+        # ── Grupo: Tipografía de uso frecuente (acceso rápido) ───────────────
+        # Rayas y comillas más habituales en novela, también disponibles en Ω.
+        self._btn_guion_largo = _boton_formato("—", "Raya / guion largo (em dash)")
+        self._btn_guion_corto = _boton_formato("–", "Guion corto (en dash)")
+        self._btn_com_esp     = _boton_formato("«»", "Comillas españolas (angulares)", ancho=36)
+        self._btn_com_ing     = _boton_formato('“”', "Comillas inglesas (dobles)", ancho=36)
+
+        self._btn_guion_largo.clicked.connect(lambda: self.caracter_solicitado.emit("—"))
+        self._btn_guion_corto.clicked.connect(lambda: self.caracter_solicitado.emit("–"))
+        self._btn_com_esp.clicked.connect(lambda: self.envolver_solicitado.emit("«", "»"))
+        self._btn_com_ing.clicked.connect(lambda: self.envolver_solicitado.emit("“", "”"))
+
+        for btn in (self._btn_guion_largo, self._btn_guion_corto,
+                    self._btn_com_esp, self._btn_com_ing):
+            layout.addWidget(btn)
+
+        layout.addWidget(_separador_vertical())
+
         # ── Grupo: Separador de escena y caracteres especiales ───────────────
         self._btn_sep = _boton_formato("✻", "Separador de escena (* * *)", ancho=34)
         self._btn_sep.clicked.connect(self.separador_solicitado)
@@ -196,7 +214,7 @@ class BarraHerramientas(QWidget):
 
         self._btn_caracteres = QToolButton()
         self._btn_caracteres.setText("Ω")
-        self._btn_caracteres.setToolTip("Caracteres especiales")
+        self._btn_caracteres.setToolTip("Más caracteres especiales")
         self._btn_caracteres.setFixedHeight(28)
         self._btn_caracteres.setCursor(Qt.CursorShape.PointingHandCursor)
         self._btn_caracteres.setPopupMode(QToolButton.ToolButtonPopupMode.InstantPopup)
