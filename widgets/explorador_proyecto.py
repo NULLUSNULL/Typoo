@@ -8,6 +8,7 @@ from typing import Optional
 from PySide6.QtCore import Qt, Signal
 from PySide6.QtGui import QAction, QIcon
 from PySide6.QtWidgets import (
+    QAbstractItemView,
     QInputDialog,
     QMenu,
     QMessageBox,
@@ -38,6 +39,35 @@ ICONO_POR_TIPO: dict[TipoElemento, str] = {
 }
 
 
+class _ArbolProyecto(QTreeWidget):
+    """QTreeWidget con reordenación por arrastre validada por el explorador."""
+
+    def __init__(self, explorador: "ExploradorProyecto") -> None:
+        super().__init__()
+        self._explorador = explorador
+        self.setDragEnabled(True)
+        self.setAcceptDrops(True)
+        self.setDropIndicatorShown(True)
+        self.setDragDropMode(QAbstractItemView.DragDropMode.InternalMove)
+        self.setSelectionMode(QAbstractItemView.SelectionMode.SingleSelection)
+
+    def dragMoveEvent(self, event) -> None:  # type: ignore[override]
+        super().dragMoveEvent(event)  # deja que Qt calcule el indicador de drop
+        origen = self.currentItem()
+        destino = self.itemAt(event.position().toPoint())
+        if self._explorador._destino_valido(origen, destino, self.dropIndicatorPosition()):
+            event.accept()
+        else:
+            event.ignore()
+
+    def dropEvent(self, event) -> None:  # type: ignore[override]
+        origen = self.currentItem()
+        destino = self.itemAt(event.position().toPoint())
+        indicador = self.dropIndicatorPosition()
+        # Gestionamos el modelo y refrescamos nosotros; no movemos widgets de Qt.
+        self._explorador._procesar_soltar(event, origen, destino, indicador)
+
+
 class ExploradorProyecto(QWidget):
     """
     Panel lateral izquierdo que muestra el árbol de un proyecto literario.
@@ -50,6 +80,7 @@ class ExploradorProyecto(QWidget):
     elemento_renombrado   = Signal(str, str)    # (id, nuevo_nombre)
     elemento_eliminado    = Signal(str)         # id del elemento eliminado
     elemento_creado       = Signal(object, str) # (ItemProyecto nuevo, padre_id)
+    elemento_movido       = Signal(str)         # id del elemento reordenado/movido
     abrir_en_panel        = Signal(object, int) # (ItemProyecto, número de panel 1|2|3)
 
     def __init__(self, parent: Optional[QWidget] = None) -> None:
@@ -64,7 +95,7 @@ class ExploradorProyecto(QWidget):
         layout.setContentsMargins(0, 0, 0, 0)
         layout.setSpacing(0)
 
-        self._arbol = QTreeWidget()
+        self._arbol = _ArbolProyecto(self)
         self._arbol.setHeaderHidden(True)
         self._arbol.setAnimated(True)
         self._arbol.setExpandsOnDoubleClick(False)
@@ -164,6 +195,75 @@ class ExploradorProyecto(QWidget):
         """Devuelve el ItemProyecto del nodo seleccionado, si lo hay."""
         nodo = self._arbol.currentItem()
         return self._item_desde_nodo(nodo) if nodo else None
+
+    # ─── Reordenación por arrastre ────────────────────────────────────────────
+
+    def _puede_contener(self, padre: ItemProyecto, origen: ItemProyecto) -> bool:
+        """Reglas de jerarquía: cada tipo solo vive en su sección."""
+        rol = padre.metadatos.get("rol")
+        if origen.tipo == TipoElemento.ESCENA:
+            return padre.tipo == TipoElemento.CAPITULO
+        if origen.tipo == TipoElemento.CAPITULO:
+            return rol == ROL_MANUSCRITO
+        if origen.tipo == TipoElemento.PERSONAJE:
+            return rol == ROL_PERSONAJES
+        if origen.tipo == TipoElemento.UBICACION:
+            return rol == ROL_UBICACIONES
+        if origen.tipo == TipoElemento.NOTA:
+            return rol == ROL_NOTAS
+        return False
+
+    def _indice_en_padre(self, item: ItemProyecto) -> int:
+        padre = self._proyecto.buscar_item(item.padre_id) if item.padre_id else None
+        if not padre:
+            return 0
+        hijos = sorted(padre.hijos, key=lambda h: h.orden)
+        return next((i for i, h in enumerate(hijos) if h.id == item.id), len(hijos))
+
+    def _resolver_destino(self, origen_nodo, destino_nodo, indicador):
+        """Devuelve (padre_item, indice) válido para soltar, o None."""
+        if self._proyecto is None or origen_nodo is None or destino_nodo is None:
+            return None
+        origen = self._item_desde_nodo(origen_nodo)
+        destino = self._item_desde_nodo(destino_nodo)
+        if not origen or not destino or origen.id == destino.id:
+            return None
+
+        Pos = QAbstractItemView.DropIndicatorPosition
+        if indicador == Pos.OnItem:
+            # Soltar «dentro» del destino; si no admite a origen, ponerlo como
+            # hermano justo después del destino.
+            if self._puede_contener(destino, origen):
+                return destino, len(destino.hijos)
+            padre = self._proyecto.buscar_item(destino.padre_id) if destino.padre_id else None
+            if padre and self._puede_contener(padre, origen):
+                return padre, self._indice_en_padre(destino) + 1
+            return None
+        if indicador in (Pos.AboveItem, Pos.BelowItem):
+            padre = self._proyecto.buscar_item(destino.padre_id) if destino.padre_id else None
+            if not padre or not self._puede_contener(padre, origen):
+                return None
+            idx = self._indice_en_padre(destino)
+            return padre, idx + (1 if indicador == Pos.BelowItem else 0)
+        return None
+
+    def _destino_valido(self, origen_nodo, destino_nodo, indicador) -> bool:
+        return self._resolver_destino(origen_nodo, destino_nodo, indicador) is not None
+
+    def _procesar_soltar(self, event, origen_nodo, destino_nodo, indicador) -> None:
+        res = self._resolver_destino(origen_nodo, destino_nodo, indicador)
+        origen = self._item_desde_nodo(origen_nodo) if origen_nodo else None
+        if not res or not origen or not self._gestor:
+            event.ignore()
+            return
+        padre_item, indice = res
+        if self._gestor.mover_elemento(origen.id, padre_item.id, indice):  # type: ignore[union-attr]
+            event.acceptProposedAction()
+            self.refrescar()
+            self.seleccionar_item(origen.id)
+            self.elemento_movido.emit(origen.id)
+        else:
+            event.ignore()
 
     # ─── Menú contextual ──────────────────────────────────────────────────────
 

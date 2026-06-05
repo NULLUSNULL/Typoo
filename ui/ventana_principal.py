@@ -19,6 +19,7 @@ from PySide6.QtWidgets import (
     QApplication,
     QDockWidget,
     QFileDialog,
+    QInputDialog,
     QMainWindow,
     QMessageBox,
     QSplitter,
@@ -392,8 +393,9 @@ class VentanaPrincipal(QMainWindow):
         self._panel_tramas.tramas_modificadas.connect(self._panel_metadatos.refrescar)
         self._panel_tramas.escena_activada.connect(self._abrir_item_en_editor)
 
-        # Al crear elementos (personajes, ubicaciones, escenas…) refrescar paneles
+        # Al crear o reordenar elementos refrescar los paneles dependientes
         self._explorador.elemento_creado.connect(self._al_crear_elemento)
+        self._explorador.elemento_movido.connect(self._al_reorganizar)
 
         # Barra de herramientas de formato
         bh = self._barra_formato
@@ -561,6 +563,10 @@ class VentanaPrincipal(QMainWindow):
     def _al_crear_elemento(self, item, padre_id: str) -> None:
         """Refresca los paneles que dependen del catálogo de elementos."""
         self._panel_metadatos.refrescar()
+        self._panel_tramas.refrescar()
+
+    def _al_reorganizar(self, item_id: str) -> None:
+        """Tras reordenar en el explorador, el orden de lectura puede cambiar."""
         self._panel_tramas.refrescar()
 
     # ─── Guardado ─────────────────────────────────────────────────────────────
@@ -886,13 +892,20 @@ class VentanaPrincipal(QMainWindow):
         if tipo == TipoElemento.CAPITULO:
             padre = proyecto.carpeta_por_rol(ROL_MANUSCRITO)
         elif tipo == TipoElemento.ESCENA:
-            padre = self._capitulo_destino(proyecto)
-            if padre is None:
+            manuscrito = proyecto.carpeta_por_rol(ROL_MANUSCRITO)
+            capitulos = sorted(
+                [h for h in manuscrito.hijos if h.tipo == TipoElemento.CAPITULO],
+                key=lambda c: c.orden,
+            ) if manuscrito else []
+            if not capitulos:
                 self._mostrar_advertencia(
                     "Sin capítulo",
                     "Crea primero un capítulo en el Manuscrito para añadir escenas.",
                 )
                 return
+            padre = self._elegir_capitulo(capitulos, proyecto)
+            if padre is None:
+                return  # el usuario canceló
         elif tipo == TipoElemento.PERSONAJE:
             padre = proyecto.carpeta_por_rol(ROL_PERSONAJES)
         elif tipo == TipoElemento.UBICACION:
@@ -903,6 +916,21 @@ class VentanaPrincipal(QMainWindow):
         if padre is None:
             padre = proyecto.raiz
         self._explorador._crear_elemento(tipo, padre, "")
+
+    def _elegir_capitulo(self, capitulos, proyecto) -> Optional[ItemProyecto]:
+        """Pregunta a qué capítulo añadir la escena (predefine el contextual)."""
+        if len(capitulos) == 1:
+            return capitulos[0]
+        defecto = self._capitulo_destino(proyecto)
+        idx = next((i for i, c in enumerate(capitulos)
+                    if defecto and c.id == defecto.id), 0)
+        nombres = [c.nombre for c in capitulos]
+        nombre, ok = QInputDialog.getItem(
+            self, "Nueva escena", "Añadir al capítulo:", nombres, idx, False
+        )
+        if not ok:
+            return None
+        return capitulos[nombres.index(nombre)]
 
     def _capitulo_destino(self, proyecto) -> Optional[ItemProyecto]:
         """Capítulo donde crear una escena: el seleccionado o el último del manuscrito."""
