@@ -60,6 +60,7 @@ class EditorMarkdown(QPlainTextEdit):
 
     def __init__(self, parent: Optional[QWidget] = None) -> None:
         super().__init__(parent)
+        self.setObjectName("EditorMarkdown")
         self._config = Configuracion()
         self._modificado = False
         self._ruta_archivo: str = ""
@@ -159,9 +160,9 @@ class EditorMarkdown(QPlainTextEdit):
         """Dibuja los números de línea en el widget lateral."""
         painter = QPainter(self._widget_lineas)
         oscuro = self._config.tema == Tema.OSCURO
-        fondo = QColor("#2C313A") if oscuro else QColor("#F0F0F0")
-        texto = QColor("#5C6370") if oscuro else QColor("#9CA3AF")
-        actual = QColor("#ABB2BF") if oscuro else QColor("#374151")
+        fondo = QColor("#1A1A1C") if oscuro else QColor("#FFFFFF")
+        texto = QColor("#4A4A4F") if oscuro else QColor("#C7C7CC")
+        actual = QColor("#8E8E93") if oscuro else QColor("#8E8E93")
 
         painter.fillRect(evento.rect(), fondo)
 
