@@ -35,8 +35,13 @@ class PanelPestanas(QTabWidget):
 
     def __init__(self, parent: Optional[QWidget] = None) -> None:
         super().__init__(parent)
-        self._items: dict[int, ItemProyecto] = {}   # índice pestaña → ItemProyecto
         self._configurar_widget()
+
+    def _item_de(self, widget) -> Optional[ItemProyecto]:
+        """ItemProyecto asociado a un editor (viaja con la pestaña al moverla)."""
+        if isinstance(widget, EditorMarkdown):
+            return getattr(widget, "item", None)
+        return None
 
     def _configurar_widget(self) -> None:
         self.setTabsClosable(False)  # Gestionamos botones de cierre manualmente
@@ -71,7 +76,8 @@ class PanelPestanas(QTabWidget):
         Si ya está abierto, activa esa pestaña.
         """
         for indice in range(self.count()):
-            if self._items.get(indice) and self._items[indice].id == item.id:
+            existente = self._item_de(self.widget(indice))
+            if existente and existente.id == item.id:
                 self.setCurrentIndex(indice)
                 return self.widget(indice)  # type: ignore[return-value]
 
@@ -86,9 +92,9 @@ class PanelPestanas(QTabWidget):
 
         editor.ruta_archivo = item.ruta_relativa
         editor.nombre_archivo = item.nombre
+        editor.item = item
 
         indice = self.addTab(editor, item.nombre)
-        self._items[indice] = item
         self._crear_boton_cierre(indice)
         self.setCurrentIndex(indice)
         editor.setFocus()
@@ -104,7 +110,7 @@ class PanelPestanas(QTabWidget):
 
     def item_activo(self) -> Optional[ItemProyecto]:
         """Retorna el ItemProyecto de la pestaña actualmente seleccionada."""
-        return self._items.get(self.currentIndex())
+        return self._item_de(self.currentWidget())
 
     def guardar_editor_activo(self, funcion_guardar) -> bool:
         editor = self.editor_activo()
@@ -120,7 +126,7 @@ class PanelPestanas(QTabWidget):
     def guardar_todos(self, funcion_guardar) -> None:
         for indice in range(self.count()):
             editor = self.widget(indice)
-            item = self._items.get(indice)
+            item = self._item_de(editor)
             if isinstance(editor, EditorMarkdown) and item and editor.modificado:
                 if funcion_guardar(item, editor.toPlainText()):
                     editor.marcar_guardado()
@@ -141,15 +147,10 @@ class PanelPestanas(QTabWidget):
         Devuelve None si el item no está en este panel.
         """
         for i in range(self.count()):
-            it = self._items.get(i)
+            editor = self.widget(i)
+            it = self._item_de(editor)
             if it and it.id == item_id:
-                editor = self.widget(i)
                 contenido = editor.toPlainText() if isinstance(editor, EditorMarkdown) else ""
-                self._items.pop(i, None)
-                nuevo_mapa: dict[int, ItemProyecto] = {}
-                for idx, itm in self._items.items():
-                    nuevo_mapa[idx if idx < i else idx - 1] = itm
-                self._items = nuevo_mapa
                 self.removeTab(i)
                 return it, contenido
         return None
@@ -159,7 +160,7 @@ class PanelPestanas(QTabWidget):
     def _cerrar_pestana(self, indice: int) -> None:
         editor = self.widget(indice)
         if isinstance(editor, EditorMarkdown) and editor.modificado:
-            item_local = self._items.get(indice)
+            item_local = self._item_de(editor)
             nombre = item_local.nombre if item_local else "Sin título"
             resp = QMessageBox.question(
                 self,
@@ -172,18 +173,11 @@ class PanelPestanas(QTabWidget):
             if resp == QMessageBox.StandardButton.Cancel:
                 return
 
-        self._items.pop(indice, None)
-        nuevo_mapa: dict[int, ItemProyecto] = {}
-        for idx, it in self._items.items():
-            nuevo_mapa[idx if idx < indice else idx - 1] = it
-        self._items = nuevo_mapa
         self.removeTab(indice)
 
     def cerrar_todas_pestanas(self) -> None:
         while self.count() > 0:
-            self._items.pop(0, None)
             self.removeTab(0)
-        self._items.clear()
 
     # ─── Menú contextual de pestañas ─────────────────────────────────────────
 
@@ -191,7 +185,7 @@ class PanelPestanas(QTabWidget):
         indice = self.tabBar().tabAt(pos)
         if indice < 0:
             return
-        item = self._items.get(indice)
+        item = self._item_de(self.widget(indice))
         if not item:
             return
 
