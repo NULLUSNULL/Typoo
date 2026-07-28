@@ -6,7 +6,7 @@ from __future__ import annotations
 from typing import Optional
 
 from PySide6.QtCore import Qt, Signal
-from PySide6.QtGui import QAction, QIcon
+from PySide6.QtGui import QAction, QColor, QIcon, QPainter, QPixmap
 from PySide6.QtWidgets import (
     QAbstractItemView,
     QInputDialog,
@@ -37,6 +37,37 @@ ICONO_POR_TIPO: dict[TipoElemento, str] = {
     TipoElemento.PERSONAJE:  "👤",
     TipoElemento.UBICACION:  "🗺",
 }
+
+
+# Color del punto de estado en el árbol (progresión esbozo → borrador →
+# revisión → terminado). Las claves cubren los valores de capítulos y escenas.
+COLOR_POR_ESTADO: dict[str, str] = {
+    "Esbozado":    "#8E8E93",   # gris
+    "Borrador":    "#FF3B30",   # rojo
+    "En revisión": "#FF9500",   # naranja
+    "Terminado":   "#34C759",   # verde
+    "Terminada":   "#34C759",   # verde (escena)
+}
+
+# Caché de iconos por color para no regenerarlos en cada nodo.
+_CACHE_ICONO_ESTADO: dict[str, QIcon] = {}
+
+
+def _icono_estado(color_hex: str) -> QIcon:
+    """Devuelve (cacheado) un icono de punto de color para el estado."""
+    icono = _CACHE_ICONO_ESTADO.get(color_hex)
+    if icono is None:
+        pm = QPixmap(12, 12)
+        pm.fill(Qt.GlobalColor.transparent)
+        painter = QPainter(pm)
+        painter.setRenderHint(QPainter.RenderHint.Antialiasing)
+        painter.setPen(Qt.PenStyle.NoPen)
+        painter.setBrush(QColor(color_hex))
+        painter.drawEllipse(1, 1, 10, 10)
+        painter.end()
+        icono = QIcon(pm)
+        _CACHE_ICONO_ESTADO[color_hex] = icono
+    return icono
 
 
 class _ArbolProyecto(QTreeWidget):
@@ -153,6 +184,7 @@ class ExploradorProyecto(QWidget):
 
         nodo.setData(0, Qt.ItemDataRole.UserRole, item.id)
         nodo.setExpanded(item.expandido)
+        self._aplicar_indicador_estado(nodo, item)
 
         # Fuente más visible para el nodo raíz
         if item.tipo == TipoElemento.PROYECTO:
@@ -172,6 +204,33 @@ class ExploradorProyecto(QWidget):
         nodo = self._items_widget.get(item_id)
         if nodo:
             self._arbol.setCurrentItem(nodo)
+
+    # ─── Indicador de estado (color) ──────────────────────────────────────────
+
+    def _aplicar_indicador_estado(
+        self, nodo: QTreeWidgetItem, item: ItemProyecto
+    ) -> None:
+        """Pinta (o quita) el punto de color según el metadato «estado»."""
+        estado = item.metadatos.get("estado") if item.metadatos else None
+        color = COLOR_POR_ESTADO.get(estado) if isinstance(estado, str) else None
+        if color:
+            nodo.setIcon(0, _icono_estado(color))
+            nodo.setToolTip(0, f"Estado: {estado}")
+        else:
+            nodo.setIcon(0, QIcon())
+            nodo.setToolTip(0, "")
+
+    def refrescar_estados(self) -> None:
+        """
+        Actualiza los puntos de color de todos los nodos sin reconstruir el
+        árbol (conserva expansión y selección). Se llama al editar «Estado».
+        """
+        if not self._proyecto:
+            return
+        for item_id, nodo in self._items_widget.items():
+            item = self._proyecto.buscar_item(item_id)
+            if item:
+                self._aplicar_indicador_estado(nodo, item)
 
     # ─── Eventos de interacción ───────────────────────────────────────────────
 

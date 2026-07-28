@@ -385,6 +385,10 @@ class VentanaPrincipal(QMainWindow):
         self._panel_metadatos.metadatos_modificados.connect(self._timer_metadatos.start)
         # Si cambian los vínculos de una escena, refrescar el visor de tramas
         self._panel_metadatos.metadatos_modificados.connect(self._panel_tramas.refrescar)
+        # Reflejar en el árbol el color de estado al editarlo (sin reconstruirlo)
+        self._panel_metadatos.metadatos_modificados.connect(self._explorador.refrescar_estados)
+        # Al persistir metadatos puede haber cambiado un nombre/alias del dossier
+        self._timer_metadatos.timeout.connect(self._aplicar_nombres_editores)
 
         # Visor de tramas
         self._panel_tramas.relaciones_modificadas.connect(self._timer_metadatos.start)
@@ -396,6 +400,13 @@ class VentanaPrincipal(QMainWindow):
         # Al crear o reordenar elementos refrescar los paneles dependientes
         self._explorador.elemento_creado.connect(self._al_crear_elemento)
         self._explorador.elemento_movido.connect(self._al_reorganizar)
+        # Mantener al día la lista de nombres para autocompletar con «@»
+        self._explorador.elemento_renombrado.connect(
+            lambda *_: self._aplicar_nombres_editores()
+        )
+        self._explorador.elemento_eliminado.connect(
+            lambda *_: self._aplicar_nombres_editores()
+        )
 
         # Barra de formato (orientada a novela)
         bh = self._barra_formato
@@ -471,6 +482,7 @@ class VentanaPrincipal(QMainWindow):
             lambda: self._actualizar_posicion_cursor(editor)
         )
         editor.tamano_zoom_cambiado.connect(self._al_zoom_editor)
+        editor.establecer_nombres(self._nombres_dossier())
         self._panel_metadatos.mostrar_item(item)
         self._barra_estado.actualizar_archivo(item.nombre)
 
@@ -498,6 +510,7 @@ class VentanaPrincipal(QMainWindow):
             lambda: self._actualizar_posicion_cursor(editor)
         )
         editor.tamano_zoom_cambiado.connect(self._al_zoom_editor)
+        editor.establecer_nombres(self._nombres_dossier())
         self._panel_metadatos.mostrar_item(item)
 
     # ─── Fuente del editor ────────────────────────────────────────────────────
@@ -511,6 +524,33 @@ class VentanaPrincipal(QMainWindow):
                 editor = panel.widget(i)
                 if editor and hasattr(editor, "aplicar_fuente"):
                     editor.aplicar_fuente(familia, tamano)
+
+    # ─── Autocompletado de nombres del dossier ────────────────────────────────
+
+    def _nombres_dossier(self) -> list[str]:
+        """Nombres de personajes y ubicaciones (con alias) para autocompletar @."""
+        if not self._gestor.hay_proyecto:
+            return []
+        proy = self._gestor.proyecto_activo
+        nombres: list[str] = []
+        for p in proy.personajes():
+            nombres.append(p.nombre)
+            for clave in ("nombre_completo", "alias"):
+                valor = p.metadatos.get(clave)
+                if isinstance(valor, str) and valor.strip():
+                    nombres.append(valor.strip())
+        for u in proy.ubicaciones():
+            nombres.append(u.nombre)
+        return nombres
+
+    def _aplicar_nombres_editores(self) -> None:
+        """Envía la lista de nombres a todos los editores abiertos."""
+        nombres = self._nombres_dossier()
+        for panel in (self._panel1, self._panel2, self._panel3):
+            for i in range(panel.count()):
+                editor = panel.widget(i)
+                if editor and hasattr(editor, "establecer_nombres"):
+                    editor.establecer_nombres(nombres)
 
     # ─── Gestión de proyectos ─────────────────────────────────────────────────
 
@@ -573,10 +613,12 @@ class VentanaPrincipal(QMainWindow):
         """Refresca los paneles que dependen del catálogo de elementos."""
         self._panel_metadatos.refrescar()
         self._panel_tramas.refrescar()
+        self._aplicar_nombres_editores()
 
     def _al_reorganizar(self, item_id: str) -> None:
         """Tras reordenar en el explorador, el orden de lectura puede cambiar."""
         self._panel_tramas.refrescar()
+        self._aplicar_nombres_editores()
 
     # ─── Guardado ─────────────────────────────────────────────────────────────
 
@@ -660,6 +702,7 @@ class VentanaPrincipal(QMainWindow):
             lambda: self._actualizar_posicion_cursor(editor)
         )
         editor.tamano_zoom_cambiado.connect(self._al_zoom_editor)
+        editor.establecer_nombres(self._nombres_dossier())
         self._panel_metadatos.mostrar_item(item)
         self._barra_estado.actualizar_archivo(item.nombre)
 

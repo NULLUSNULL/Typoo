@@ -8,7 +8,7 @@ from __future__ import annotations
 import re
 from typing import Optional
 
-from PySide6.QtCore import Qt, Signal
+from PySide6.QtCore import Qt, QStringListModel, Signal
 from PySide6.QtGui import (
     QFont,
     QTextBlockFormat,
@@ -16,6 +16,7 @@ from PySide6.QtGui import (
     QWheelEvent,
 )
 from PySide6.QtWidgets import (
+    QCompleter,
     QPlainTextEdit,
     QWidget,
 )
@@ -62,10 +63,14 @@ class EditorMarkdown(QPlainTextEdit):
         self._resaltador: Optional[ResaltadorMarkdown] = None
         self._ajustando_columna = False
 
+        self._nombres: list[str] = []
+        self._completer: Optional[QCompleter] = None
+
         self._configurar_fuente()
         self._configurar_editor()
         self._conectar_señales()
         self._inicializar_resaltador()
+        self._configurar_completador()
 
     # ─── Propiedades ──────────────────────────────────────────────────────────
 
@@ -124,6 +129,76 @@ class EditorMarkdown(QPlainTextEdit):
     def _inicializar_resaltador(self) -> None:
         es_oscuro = self._config.tema == Tema.OSCURO
         self._resaltador = ResaltadorMarkdown(self.document(), tema_oscuro=es_oscuro)
+
+    # ─── Autocompletado de nombres (@personaje / @ubicación) ──────────────────
+
+    def _configurar_completador(self) -> None:
+        self._completer = QCompleter(self)
+        self._completer.setModel(QStringListModel([], self._completer))
+        self._completer.setCaseSensitivity(Qt.CaseSensitivity.CaseInsensitive)
+        self._completer.setCompletionMode(
+            QCompleter.CompletionMode.PopupCompletion
+        )
+        self._completer.setWidget(self)
+        self._completer.activated[str].connect(self._insertar_nombre_completado)
+
+    def establecer_nombres(self, nombres: list[str]) -> None:
+        """
+        Define la lista de nombres del dossier (personajes y ubicaciones) que se
+        ofrecen al escribir «@». La ventana la actualiza al abrir el editor y
+        cuando cambia el catálogo de elementos.
+        """
+        self._nombres = sorted({n.strip() for n in nombres if n and n.strip()})
+        if self._completer is not None:
+            self._completer.model().setStringList(self._nombres)
+
+    def _prefijo_arroba(self) -> Optional[str]:
+        """
+        Devuelve el texto escrito tras una «@» inmediatamente anterior al cursor
+        (cadena vacía si solo se ha escrito «@»), o None si no procede completar.
+        """
+        cursor = self.textCursor()
+        if cursor.hasSelection():
+            return None
+        texto = cursor.block().text()[: cursor.positionInBlock()]
+        # La @ debe ir al inicio de línea o precedida de un espacio (evita emails).
+        m = re.search(r"(?:^|\s)@([^\s@]*)$", texto)
+        return m.group(1) if m else None
+
+    def _actualizar_completador(self) -> None:
+        comp = self._completer
+        if comp is None or not self._nombres:
+            return
+        prefijo = self._prefijo_arroba()
+        if prefijo is None:
+            comp.popup().hide()
+            return
+        comp.setCompletionPrefix(prefijo)
+        if comp.completionCount() == 0:
+            comp.popup().hide()
+            return
+        popup = comp.popup()
+        popup.setCurrentIndex(comp.completionModel().index(0, 0))
+        rect = self.cursorRect()
+        rect.setWidth(
+            popup.sizeHintForColumn(0)
+            + popup.verticalScrollBar().sizeHint().width()
+        )
+        comp.complete(rect)
+
+    def _insertar_nombre_completado(self, texto: str) -> None:
+        """Sustituye «@parcial» por el nombre elegido en el desplegable."""
+        comp = self._completer
+        if comp is None:
+            return
+        cursor = self.textCursor()
+        prefijo = comp.completionPrefix()
+        cursor.beginEditBlock()
+        for _ in range(len(prefijo) + 1):  # +1 por la «@»
+            cursor.deletePreviousChar()
+        cursor.insertText(texto)
+        cursor.endEditBlock()
+        self.setTextCursor(cursor)
 
     # ─── Estilo y tema ────────────────────────────────────────────────────────
 
@@ -357,6 +432,20 @@ class EditorMarkdown(QPlainTextEdit):
     # ─── Sangría con el teclado (Tab / Mayús+Tab) ────────────────────────────
 
     def keyPressEvent(self, evento) -> None:  # type: ignore[override]
+        # Si el desplegable de autocompletado está visible, dejar que gestione
+        # navegación y aceptación (Enter/Tab/Esc) antes que la lógica de sangría.
+        comp = self._completer
+        if comp is not None and comp.popup().isVisible():
+            if evento.key() in (
+                Qt.Key.Key_Enter,
+                Qt.Key.Key_Return,
+                Qt.Key.Key_Escape,
+                Qt.Key.Key_Tab,
+                Qt.Key.Key_Backtab,
+            ):
+                evento.ignore()
+                return
+
         es_tab = evento.key() == Qt.Key.Key_Tab
         es_backtab = evento.key() == Qt.Key.Key_Backtab
         mays = bool(evento.modifiers() & Qt.KeyboardModifier.ShiftModifier)
@@ -372,6 +461,7 @@ class EditorMarkdown(QPlainTextEdit):
                 evento.accept()
                 return
         super().keyPressEvent(evento)
+        self._actualizar_completador()
 
     # ─── Zoom con la rueda del ratón ─────────────────────────────────────────
 
