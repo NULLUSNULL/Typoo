@@ -464,12 +464,50 @@ class VentanaPrincipal(QMainWindow):
     def _accion_visibilidad_panel(self, num: int) -> Optional[QAction]:
         return {2: self._ac_panel2, 3: self._ac_panel3}.get(num)
 
+    def _localizar_item_abierto(self, item_id: str):
+        """Devuelve (panel, num, indice) si el item ya está abierto en algún área."""
+        for num, panel in enumerate((self._panel1, self._panel2, self._panel3), start=1):
+            for i in range(panel.count()):
+                editor = panel.widget(i)
+                it = getattr(editor, "item", None)
+                if it is not None and it.id == item_id:
+                    return panel, num, i
+        return None
+
+    def _activar_item_abierto(self, item: ItemProyecto) -> bool:
+        """
+        Si el documento ya está abierto en cualquier área, lo trae al frente y
+        devuelve True (evita cargarlo por duplicado en otra área).
+        """
+        localizacion = self._localizar_item_abierto(item.id)
+        if not localizacion:
+            return False
+        panel, num, indice = localizacion
+        if panel.isHidden():
+            panel.show()
+            ac = self._accion_visibilidad_panel(num)
+            if ac:
+                ac.setChecked(True)
+        panel.setCurrentIndex(indice)
+        editor = panel.widget(indice)
+        if editor:
+            editor.setFocus()
+        self._panel_metadatos.mostrar_item(item)
+        self._barra_estado.actualizar_archivo(item.nombre)
+        self._barra_estado.mostrar_mensaje(
+            f"«{item.nombre}» ya está abierto en el Área {num}.", 2500
+        )
+        return True
+
     def _abrir_item_en_panel(self, item: ItemProyecto, panel_num: int) -> None:
         """Abre un documento en el panel indicado (1, 2 o 3)."""
         panel = self._panel_por_numero(panel_num)
         if not panel:
             return
         if not item.ruta_relativa:
+            return
+        # Un documento solo puede estar abierto en un área: si ya lo está, se activa.
+        if self._activar_item_abierto(item):
             return
         contenido = self._gestor.leer_documento(item)
         if panel.isHidden():
@@ -695,6 +733,9 @@ class VentanaPrincipal(QMainWindow):
 
     def _abrir_item_en_editor(self, item: ItemProyecto) -> None:
         if not item.ruta_relativa:
+            return
+        # Un documento solo puede estar abierto en un área: si ya lo está, se activa.
+        if self._activar_item_abierto(item):
             return
         contenido = self._gestor.leer_documento(item)
         editor = self._panel1.abrir_documento(item, contenido)
