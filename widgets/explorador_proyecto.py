@@ -134,7 +134,7 @@ class ExploradorProyecto(QWidget):
         self._arbol.customContextMenuRequested.connect(self._mostrar_menu_contextual)
         self._arbol.itemClicked.connect(self._al_hacer_click)
         self._arbol.itemDoubleClicked.connect(self._al_doble_click)
-        self._arbol.setIndentation(12)
+        self._arbol.setIndentation(18)
 
         layout.addWidget(self._arbol)
 

@@ -116,14 +116,28 @@ class BarraHerramientas(QWidget):
         layout.setContentsMargins(6, 3, 6, 3)
         layout.setSpacing(3)
 
+        # ── Grupo: Estilo de párrafo (a la izquierda de la tipografía) ───────
+        self._combo_encabezado = QComboBox()
+        self._combo_encabezado.setToolTip("Estilo de párrafo")
+        self._combo_encabezado.setFixedWidth(140)
+        self._combo_encabezado.addItem("Texto normal")
+        self._combo_encabezado.addItem("Título (capítulo)")
+        self._combo_encabezado.addItem("Sección")
+        self._combo_encabezado.addItem("Subsección")
+        self._combo_encabezado.currentIndexChanged.connect(self._al_cambiar_encabezado)
+        layout.addWidget(self._combo_encabezado)
+
+        layout.addWidget(_separador_vertical())
+
         # ── Grupo: Tipografía ────────────────────────────────────────────────
         self._combo_fuente = self._crear_combo_fuentes()
         self._combo_fuente.currentTextChanged.connect(self._al_cambiar_fuente)
         layout.addWidget(self._combo_fuente)
 
         self._combo_tamano = QComboBox()
+        self._combo_tamano.setObjectName("ComboTamano")
         self._combo_tamano.setToolTip("Tamaño de fuente")
-        self._combo_tamano.setFixedWidth(66)
+        self._combo_tamano.setFixedWidth(70)
         self._combo_tamano.setEditable(True)
         self._combo_tamano.setInsertPolicy(QComboBox.InsertPolicy.NoInsert)
         self._combo_tamano.lineEdit().setAlignment(Qt.AlignmentFlag.AlignCenter)
@@ -156,17 +170,7 @@ class BarraHerramientas(QWidget):
 
         layout.addWidget(_separador_vertical())
 
-        # ── Grupo: Estructura (títulos) ──────────────────────────────────────
-        self._combo_encabezado = QComboBox()
-        self._combo_encabezado.setToolTip("Nivel de título")
-        self._combo_encabezado.setFixedWidth(140)
-        self._combo_encabezado.addItem("Texto normal")
-        self._combo_encabezado.addItem("Título (capítulo)")
-        self._combo_encabezado.addItem("Sección")
-        self._combo_encabezado.addItem("Subsección")
-        self._combo_encabezado.currentIndexChanged.connect(self._al_cambiar_encabezado)
-        layout.addWidget(self._combo_encabezado)
-
+        # ── Grupo: Cita / epígrafe ───────────────────────────────────────────
         self._btn_cita = _boton_formato("❝", "Cita / epígrafe")
         self._btn_cita.clicked.connect(self.cita_solicitada)
         layout.addWidget(self._btn_cita)
