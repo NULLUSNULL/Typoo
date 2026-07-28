@@ -56,23 +56,8 @@ class DialogoPreferencias(QDialog):
         layout = QVBoxLayout(self)
         layout.setSpacing(14)
 
-        # ── Editor ────────────────────────────────────────────────────────────
-        grupo_editor = QGroupBox("Editor")
-        form_editor = QFormLayout(grupo_editor)
-
-        self._combo_fuente = QComboBox()
-        fuentes_mono = [
-            "Courier New", "Consolas", "Fira Code",
-            "JetBrains Mono", "Source Code Pro", "Inconsolata",
-        ]
-        self._combo_fuente.addItems(fuentes_mono)
-        form_editor.addRow("Fuente:", self._combo_fuente)
-
-        self._spin_tamanio = QSpinBox()
-        self._spin_tamanio.setRange(8, 32)
-        self._spin_tamanio.setSuffix(" pt")
-        form_editor.addRow("Tamaño de fuente:", self._spin_tamanio)
-        layout.addWidget(grupo_editor)
+        # La tipografía y el tamaño del editor se ajustan desde la barra de
+        # formato (y con Ctrl+rueda), por lo que ya no se configuran aquí.
 
         # ── Autoguardado ──────────────────────────────────────────────────────
         grupo_auto = QGroupBox("Autoguardado")
@@ -147,12 +132,6 @@ class DialogoPreferencias(QDialog):
 
     def _cargar_valores(self) -> None:
         """Precarga la UI con los valores actuales de configuración."""
-        idx = self._combo_fuente.findText(self._config.fuente_familia)
-        if idx >= 0:
-            self._combo_fuente.setCurrentIndex(idx)
-
-        self._spin_tamanio.setValue(self._config.fuente_tamanio)
-
         self._chk_autoguardado.setChecked(self._config.autoguardado_activo)
         self._spin_intervalo.setValue(self._config.intervalo_autoguardado // 1000)
         self._spin_intervalo.setEnabled(self._config.autoguardado_activo)
@@ -171,8 +150,6 @@ class DialogoPreferencias(QDialog):
 
     def _guardar_y_aceptar(self) -> None:
         """Persiste los cambios en la configuración."""
-        self._config.fuente_familia         = self._combo_fuente.currentText()
-        self._config.fuente_tamanio         = self._spin_tamanio.value()
         self._config.autoguardado_activo    = self._chk_autoguardado.isChecked()
         self._config.intervalo_autoguardado = self._spin_intervalo.value() * 1000
         self._config.max_respaldos          = self._spin_max_resp.value()

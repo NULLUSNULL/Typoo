@@ -196,7 +196,7 @@ QTreeWidget, QTreeView {{
     border: none;
     font-size: 13px;
     outline: none;
-    show-decoration-selected: 1;
+    show-decoration-selected: 0;
 }}
 QTreeWidget::item, QTreeView::item {{
     padding: 5px 4px;
@@ -208,16 +208,27 @@ QTreeWidget::item:selected, QTreeView::item:selected {{
     background-color: {acento};
     color: #FFFFFF;
 }}
-QTreeWidget::branch {{ background: transparent; }}
+/* Fondo opaco de panel en la columna de ramas: así las flechas de despliegue
+   quedan siempre sobre fondo neutro y la selección azul no las invade. */
+QTreeWidget::branch {{ background-color: {barra}; }}
+/* Ocultar las líneas guía por defecto de Qt (las «barras verticales») */
+QTreeWidget::branch:has-siblings:!adjoins-item,
+QTreeWidget::branch:has-siblings:adjoins-item,
+QTreeWidget::branch:!has-children:!has-siblings:adjoins-item {{
+    border-image: none;
+    image: none;
+}}
 QTreeWidget::branch:has-children:!has-siblings:closed,
 QTreeWidget::branch:closed:has-children:has-siblings {{
     border-image: none;
     image: url({cerrado});
+    background-color: {barra};
 }}
 QTreeWidget::branch:open:has-children:!has-siblings,
 QTreeWidget::branch:open:has-children:has-siblings {{
     border-image: none;
     image: url({abierto});
+    background-color: {barra};
 }}
 
 /* ── Editor de texto ──────────────────────────────────────────────── */
@@ -337,6 +348,17 @@ QComboBox {{
 QComboBox:hover {{ border-color: {acento}; }}
 QComboBox::drop-down {{ border: none; width: 22px; }}
 QComboBox::down-arrow {{ image: url({ad}); width: 10px; height: 6px; }}
+/* Selector de tamaño (editable y estrecho): menos hueco y sin resaltado de
+   selección para que el número se vea siempre nítido y centrado. */
+QComboBox#ComboTamano {{ padding: 5px 4px 5px 6px; }}
+QComboBox#ComboTamano QLineEdit {{
+    background: transparent;
+    color: {texto};
+    border: none;
+    padding: 0;
+    selection-background-color: transparent;
+    selection-color: {texto};
+}}
 QComboBox QAbstractItemView {{
     background-color: {elevado};
     color: {texto};
