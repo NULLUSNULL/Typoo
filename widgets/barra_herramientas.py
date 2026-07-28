@@ -123,8 +123,9 @@ class BarraHerramientas(QWidget):
 
         self._combo_tamano = QComboBox()
         self._combo_tamano.setToolTip("Tamaño de fuente")
-        self._combo_tamano.setFixedWidth(58)
+        self._combo_tamano.setFixedWidth(66)
         self._combo_tamano.setEditable(True)
+        self._combo_tamano.setInsertPolicy(QComboBox.InsertPolicy.NoInsert)
         self._combo_tamano.lineEdit().setAlignment(Qt.AlignmentFlag.AlignCenter)
         for t in _TAMANOS:
             self._combo_tamano.addItem(str(t))
@@ -275,6 +276,7 @@ class BarraHerramientas(QWidget):
         else:
             self._combo_tamano.setCurrentText(actual)
         self._combo_tamano.blockSignals(False)
+        self._deseleccionar_tamano()
 
     def _al_cambiar_fuente(self, familia: str) -> None:
         if familia and not familia.startswith("—"):
@@ -366,3 +368,12 @@ class BarraHerramientas(QWidget):
         self._combo_tamano.blockSignals(True)
         self._combo_tamano.setCurrentText(str(tamano))
         self._combo_tamano.blockSignals(False)
+        self._deseleccionar_tamano()
+
+    def _deseleccionar_tamano(self) -> None:
+        """Quita la selección del texto del combo editable para que el número
+        no aparezca resaltado (color de selección) al fijarlo por código."""
+        edit = self._combo_tamano.lineEdit()
+        if edit is not None:
+            edit.deselect()
+            edit.setCursorPosition(0)
