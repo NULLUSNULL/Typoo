@@ -282,9 +282,11 @@ ditto -c -k --keepParent dist/Typoo.app dist/Typoo-mac.zip
 
 #### Icono del `.app` (macOS)
 
-El paquete `.app` usa un icono en formato `.icns`. El repositorio incluye el
-icono en `.ico` (Windows) y `.svg`, pero no el `.icns`; si no existe, `build.sh`
-compila sin icono propio. Para generarlo en un Mac:
+El paquete `.app` usa un icono en formato `.icns`. **Ya viene incluido** en
+`assets/iconos/typoo-icon.icns`, así que `build.sh` lo usa automáticamente y el
+`.app` sale con el icono de Typoo sin pasos adicionales.
+
+Si quieres **regenerarlo o cambiarlo**, en un Mac:
 
 1. Exporta `assets/iconos/typoo-icon.svg` a un PNG cuadrado de **1024×1024**
    (con Vista Previa, Figma, Inkscape…), por ejemplo `typoo-icon-1024.png`.
@@ -295,8 +297,7 @@ compila sin icono propio. Para generarlo en un Mac:
    assets/iconos/make_icns.sh ruta/al/typoo-icon-1024.png
    ```
 
-   Esto crea `assets/iconos/typoo-icon.icns`. Vuelve a ejecutar `./build.sh` y el
-   `.app` saldrá con el icono.
+   Esto sobrescribe `assets/iconos/typoo-icon.icns`. Vuelve a ejecutar `./build.sh`.
 
 > **Nota:** cada instalador debe generarse en su propio sistema operativo
 > (PyInstaller no compila de forma cruzada): el `.exe` en Windows, el `.app` en
