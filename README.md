@@ -256,25 +256,65 @@ MiNovela/
 
 ## Empaquetado para distribución
 
-Usa el script incluido `build.bat` (Windows) para generar un `.exe` en la carpeta `dist/`:
+Typoo se empaqueta con [PyInstaller](https://pyinstaller.org). Hay un script por
+plataforma; ambos incluyen todos los *assets* (tipografías e iconos) y el
+resultado no requiere tener Python instalado.
+
+### Windows → `dist\Typoo.exe`
 
 ```bat
 build.bat
 ```
 
-O manualmente:
+### macOS → `dist/Typoo.app`  ·  Linux → `dist/Typoo`
+
+```bash
+chmod +x build.sh      # solo la primera vez
+./build.sh
+```
+
+El script detecta el sistema: en macOS genera un paquete `Typoo.app` y en Linux
+un ejecutable `Typoo`. Para distribuir el `.app` puedes comprimirlo:
+
+```bash
+ditto -c -k --keepParent dist/Typoo.app dist/Typoo-mac.zip
+```
+
+#### Icono del `.app` (macOS)
+
+El paquete `.app` usa un icono en formato `.icns`. **Ya viene incluido** en
+`assets/iconos/typoo-icon.icns`, así que `build.sh` lo usa automáticamente y el
+`.app` sale con el icono de Typoo sin pasos adicionales.
+
+Si quieres **regenerarlo o cambiarlo**, en un Mac:
+
+1. Exporta `assets/iconos/typoo-icon.svg` a un PNG cuadrado de **1024×1024**
+   (con Vista Previa, Figma, Inkscape…), por ejemplo `typoo-icon-1024.png`.
+2. Ejecuta el ayudante incluido (usa las herramientas nativas `sips` e `iconutil`):
+
+   ```bash
+   chmod +x assets/iconos/make_icns.sh
+   assets/iconos/make_icns.sh ruta/al/typoo-icon-1024.png
+   ```
+
+   Esto sobrescribe `assets/iconos/typoo-icon.icns`. Vuelve a ejecutar `./build.sh`.
+
+> **Nota:** cada instalador debe generarse en su propio sistema operativo
+> (PyInstaller no compila de forma cruzada): el `.exe` en Windows, el `.app` en
+> macOS y el binario de Linux en Linux. En Apple Silicon puedes además crear un
+> `.dmg` con `hdiutil create -volname Typoo -srcfolder dist/Typoo.app -ov -format UDZO dist/Typoo.dmg`.
+
+### Manualmente (sin script)
 
 ```bash
 pip install pyinstaller
-pyinstaller --onefile --windowed --name Typoo ^
-    --add-data "assets;assets" ^
-    --distpath dist ^
-    --workpath build_tmp ^
-    --specpath build_tmp ^
+# Windows: usa ';' como separador de --add-data
+# macOS/Linux: usa ':'
+pyinstaller --onefile --windowed --name Typoo \
+    --add-data "assets:assets" \
+    --distpath dist --workpath build_tmp --specpath build_tmp \
     main.py
 ```
-
-El ejecutable resultante (`dist/Typoo.exe`) incluye todos los assets y no requiere Python instalado.
 
 ---
 
