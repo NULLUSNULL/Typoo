@@ -1,2 +1,8 @@
 __pycache__/
 *.pyc
+
+# Artefactos de empaquetado (PyInstaller)
+dist/
+build/
+build_tmp/
+*.spec
