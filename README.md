@@ -280,6 +280,13 @@ un ejecutable `Typoo`. Para distribuir el `.app` puedes comprimirlo:
 ditto -c -k --keepParent dist/Typoo.app dist/Typoo-mac.zip
 ```
 
+**Dependencias:** si el intérprete actual ya tiene instaladas las dependencias
+(`pip install -r requirements.txt`) y PyInstaller, `build.sh` las usa. Si no,
+crea automáticamente un entorno virtual local en `.venv/` e instala ahí lo
+necesario. Esto evita el error `externally-managed-environment` (PEP 668) del
+Python de Homebrew en macOS sin tocar el Python del sistema; el `.venv` se
+reutiliza en compilaciones posteriores.
+
 #### Icono del `.app` (macOS)
 
 El paquete `.app` usa un icono en formato `.icns`. **Ya viene incluido** en

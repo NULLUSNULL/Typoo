@@ -13,14 +13,36 @@ cd "$PROJ"
 
 SO="$(uname -s)"
 
-# ── 1) Intérprete de Python ──────────────────────────────────────────────────
-PY="python3"
-command -v "$PY" >/dev/null 2>&1 || PY="python"
+# ── 1) Intérprete de Python y dependencias de compilación ────────────────────
+# PyInstaller necesita poder importar las dependencias del proyecto (PySide6,
+# etc.) para empaquetarlas. Se usa el intérprete actual si ya tiene todo; si
+# no, se prepara un entorno virtual local (.venv). Así se evita el error
+# «externally-managed-environment» (PEP 668) del Python de Homebrew en macOS,
+# sin tocar el Python del sistema.
+echo "[1/4] Preparando el entorno de compilación..."
 
-# ── 2) PyInstaller ───────────────────────────────────────────────────────────
-echo "[1/4] Verificando PyInstaller..."
-if ! "$PY" -m PyInstaller --version >/dev/null 2>&1; then
-    echo "      PyInstaller no encontrado. Instalando..."
+PY="${VIRTUAL_ENV:+$VIRTUAL_ENV/bin/python}"
+if [[ -z "${PY:-}" ]]; then
+    PY="python3"
+    command -v "$PY" >/dev/null 2>&1 || PY="python"
+fi
+
+_tiene() { "$PY" -c "import $1" >/dev/null 2>&1; }
+
+if _tiene PySide6 && "$PY" -m PyInstaller --version >/dev/null 2>&1; then
+    echo "      Usando el intérprete actual: $PY"
+else
+    VENV="$PROJ/.venv"
+    if [[ ! -d "$VENV" ]]; then
+        echo "      Creando entorno virtual local en .venv ..."
+        "$PY" -m venv "$VENV"
+    fi
+    PY="$VENV/bin/python"
+    echo "      Instalando dependencias en .venv (PySide6, exportadores, PyInstaller)..."
+    "$PY" -m pip install --upgrade pip >/dev/null
+    if [[ -f "$PROJ/requirements.txt" ]]; then
+        "$PY" -m pip install -r "$PROJ/requirements.txt"
+    fi
     "$PY" -m pip install pyinstaller
 fi
 
