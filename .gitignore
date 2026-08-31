@@ -6,3 +6,6 @@ dist/
 build/
 build_tmp/
 *.spec
+
+# Entorno virtual de compilación creado por build.sh
+.venv/
