@@ -187,6 +187,7 @@ class ProveedorIA:
         max_tokens: int = 1024,
         cancelar: Cancelar = None,
     ) -> Iterator[str]:
+        mensajes = self._preparar_mensajes(mensajes)
         if self.protocolo == "openai":
             yield from self._stream_openai(mensajes, temperatura, max_tokens, cancelar)
         elif self.protocolo == "anthropic":
@@ -199,6 +200,24 @@ class ProveedorIA:
             yield from self._stream_apple(mensajes, temperatura, max_tokens, cancelar)
         else:
             raise ErrorIA(f"Protocolo no soportado: {self.protocolo}")
+
+    def _sin_pensamiento(self) -> bool:
+        """True si conviene desactivar el modo «pensamiento» (modelos Qwen3)."""
+        if self.protocolo == "embebido":
+            return True  # el catálogo embebido es Qwen3
+        return "qwen3" in (self.modelo or "").lower()
+
+    def _preparar_mensajes(self, mensajes: list[Mensaje]) -> list[Mensaje]:
+        """Añade el conmutador «/no_think» de Qwen3 al último mensaje de usuario."""
+        if not self._sin_pensamiento():
+            return mensajes
+        copia = [dict(m) for m in mensajes]
+        for m in reversed(copia):
+            if m.get("role") == "user":
+                if "/no_think" not in m.get("content", ""):
+                    m["content"] = (m.get("content", "") + " /no_think").strip()
+                break
+        return copia
 
     def _stream_apple(self, mensajes, temperatura, max_tokens, cancelar):
         import json

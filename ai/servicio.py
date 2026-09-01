@@ -3,9 +3,25 @@
 
 from __future__ import annotations
 
+import re
+
 from PySide6.QtCore import QThread, Signal
 
 from ai.proveedores import ErrorIA, ProveedorIA, Mensaje
+
+# Bloques de "razonamiento" que algunos modelos (Qwen3, DeepSeek-R1…) emiten y
+# que no queremos mostrar: solo interesa la respuesta final.
+_RE_PENSAMIENTO_CERRADO = re.compile(r"<think(?:ing)?>.*?</think(?:ing)?>",
+                                     re.DOTALL | re.IGNORECASE)
+_RE_PENSAMIENTO_ABIERTO = re.compile(r"<think(?:ing)?>.*$",
+                                     re.DOTALL | re.IGNORECASE)
+
+
+def limpiar_pensamiento(texto: str) -> str:
+    """Elimina los bloques <think>…</think> (cerrados o aún abiertos)."""
+    texto = _RE_PENSAMIENTO_CERRADO.sub("", texto)
+    texto = _RE_PENSAMIENTO_ABIERTO.sub("", texto)
+    return texto
 
 
 class TrabajadorIA(QThread):
@@ -35,7 +51,8 @@ class TrabajadorIA(QThread):
         self._cancelado = True
 
     def run(self) -> None:  # noqa: D401 - ejecutado en el hilo
-        acumulado: list[str] = []
+        crudo: list[str] = []
+        limpio_emitido = ""
         try:
             for trozo in self._proveedor.generar_stream(
                 self._mensajes,
@@ -45,10 +62,14 @@ class TrabajadorIA(QThread):
             ):
                 if self._cancelado:
                     break
-                acumulado.append(trozo)
-                self.token.emit(trozo)
+                crudo.append(trozo)
+                # Recalcular el texto sin razonamiento y emitir solo lo nuevo.
+                limpio = limpiar_pensamiento("".join(crudo))
+                if len(limpio) > len(limpio_emitido) and limpio.startswith(limpio_emitido):
+                    self.token.emit(limpio[len(limpio_emitido):])
+                    limpio_emitido = limpio
             if not self._cancelado:
-                self.terminado.emit("".join(acumulado))
+                self.terminado.emit(limpiar_pensamiento("".join(crudo)).strip())
         except ErrorIA as e:
             self.error.emit(str(e))
         except Exception as e:  # pragma: no cover - salvaguarda
