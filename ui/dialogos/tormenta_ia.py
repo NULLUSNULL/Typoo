@@ -112,6 +112,7 @@ class DialogoTormenta(QDialog):
         self._btn_insertar.hide()
         self._btn_explorar.show()
         self._btn_explorar.setEnabled(False)
+        self._btn_regenerar.setVisible(True)
         self._btn_regenerar.setEnabled(False)
         self._estado.setText("Generando 3 caminos posibles…")
         self._buffer = []
@@ -164,7 +165,7 @@ class DialogoTormenta(QDialog):
         titulo, desc = self._opciones[idx]
         self._area_opciones.hide()
         self._btn_explorar.hide()
-        self._btn_regenerar.setEnabled(False)
+        self._btn_regenerar.setVisible(False)   # solo en la pantalla de opciones
         self._vista.clear()
         self._vista.show()
         self._btn_volver.show()
@@ -191,6 +192,7 @@ class DialogoTormenta(QDialog):
         self._area_opciones.show()
         self._btn_explorar.show()
         self._btn_explorar.setEnabled(self._grupo.checkedId() >= 0)
+        self._btn_regenerar.setVisible(True)
         self._btn_regenerar.setEnabled(True)
         self._estado.setText("Elige un camino y pulsa «Explorar esta idea».")
 

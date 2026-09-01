@@ -19,7 +19,9 @@ from PySide6.QtWidgets import (
     QApplication,
     QDockWidget,
     QFileDialog,
+    QHBoxLayout,
     QInputDialog,
+    QLabel,
     QMainWindow,
     QMessageBox,
     QSplitter,
@@ -140,8 +142,41 @@ class VentanaPrincipal(QMainWindow):
         self._barra_estado = BarraEstado(self)
         self.setStatusBar(self._barra_estado)
 
+    def _crear_barra_titulo(self) -> None:
+        """Barra superior con el nombre de la app (e icono de IA si está activa)."""
+        banner = QWidget()
+        banner.setObjectName("BannerApp")
+        bl = QHBoxLayout(banner)
+        bl.setContentsMargins(8, 5, 8, 5)
+        bl.setSpacing(8)
+        bl.addStretch(1)
+        lbl = QLabel(NOMBRE_APP)
+        lbl.setObjectName("BannerTitulo")
+        fuente = lbl.font()
+        fuente.setBold(True)
+        fuente.setPointSize(fuente.pointSize() + 1)
+        lbl.setFont(fuente)
+        bl.addWidget(lbl)
+        self._icono_ia = QLabel()
+        self._icono_ia.setFixedSize(18, 18)
+        self._icono_ia.setScaledContents(True)
+        self._icono_ia.hide()
+        bl.addWidget(self._icono_ia)
+        bl.addStretch(1)
+
+        dock = QDockWidget("Typoo", self)
+        dock.setObjectName("DockBanner")
+        dock.setWidget(banner)
+        dock.setFeatures(QDockWidget.DockWidgetFeature.NoDockWidgetFeatures)
+        dock.setAllowedAreas(Qt.DockWidgetArea.TopDockWidgetArea)
+        dock.setTitleBarWidget(QWidget())
+        self.addDockWidget(Qt.DockWidgetArea.TopDockWidgetArea, dock)
+        self._dock_banner = dock
+
     def _crear_barra_herramientas(self) -> None:
         """Crea e instala la barra de herramientas de formato."""
+        self._crear_barra_titulo()
+
         self._barra_formato = BarraHerramientas()
         self._barra_formato.setObjectName("BarraHerramientas")
 
@@ -158,7 +193,27 @@ class VentanaPrincipal(QMainWindow):
         )
         dock.setTitleBarWidget(QWidget())  # Ocultar la barra de título del dock
         self.addDockWidget(Qt.DockWidgetArea.TopDockWidgetArea, dock)
+        # La barra de formato queda debajo del banner del nombre de la app.
+        self.splitDockWidget(self._dock_banner, dock, Qt.Orientation.Vertical)
         self._dock_formato = dock
+        self._actualizar_banner_ia()
+
+    def _actualizar_banner_ia(self) -> None:
+        """Muestra el icono de IA en el banner cuando el asistente está activo."""
+        if not hasattr(self, "_icono_ia"):
+            return
+        if self._config.ia_habilitada:
+            from PySide6.QtGui import QIcon
+            from core.constantes import RUTA_ICONO
+            ruta = RUTA_ICONO.parent / "ia.svg"
+            if ruta.exists():
+                self._icono_ia.setPixmap(QIcon(str(ruta)).pixmap(18, 18))
+                self._icono_ia.setToolTip("Asistente de IA activo")
+                self._icono_ia.show()
+            else:
+                self._icono_ia.hide()
+        else:
+            self._icono_ia.hide()
 
         # Visor de tramas: banda inferior a lo ancho, plegable.
         self._panel_tramas = PanelTramas()
@@ -1205,6 +1260,7 @@ class VentanaPrincipal(QMainWindow):
             # Si la IA se desactivó, ocultar su panel.
             if not self._config.ia_habilitada and self._dock_asistente.isVisible():
                 self._dock_asistente.hide()
+            self._actualizar_banner_ia()
             self._barra_estado.mostrar_mensaje("Preferencias guardadas.")
 
     # ─── Asistente de IA ──────────────────────────────────────────────────────

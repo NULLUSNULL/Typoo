@@ -125,6 +125,16 @@ QToolTip {{
     padding: 4px 8px;
 }}
 
+/* ── Banner con el nombre de la aplicación ─────────────────────────── */
+QWidget#BannerApp {{
+    background-color: {barra};
+    border-bottom: 1px solid {borde};
+}}
+QLabel#BannerTitulo {{
+    color: {texto};
+    letter-spacing: 0.5px;
+}}
+
 /* ── Barra de menú ─────────────────────────────────────────────────── */
 QMenuBar {{
     background-color: {barra};
@@ -230,6 +240,26 @@ QTreeWidget::branch:open:has-children:has-siblings {{
     image: url({abierto});
     background-color: {barra};
 }}
+
+/* ── Tablas (visor de tramas) ─────────────────────────────────────── */
+QTableView {{
+    background-color: {barra};
+    alternate-background-color: {barra};
+    color: {texto};
+    gridline-color: {borde};
+    border: none;
+    selection-background-color: {acento};
+    selection-color: #FFFFFF;
+}}
+QHeaderView::section {{
+    background-color: {elevado};
+    color: {texto};
+    border: none;
+    border-right: 1px solid {borde};
+    border-bottom: 1px solid {borde};
+    padding: 4px 6px;
+}}
+QTableCornerButton::section {{ background-color: {elevado}; border: none; }}
 
 /* ── Editor de texto ──────────────────────────────────────────────── */
 QPlainTextEdit#EditorMarkdown {{
@@ -465,6 +495,44 @@ QRadioButton::indicator:hover {{ border-color: {acento}; }}
 
 # ─── Gestor de temas ─────────────────────────────────────────────────────────
 
+# Colores base de cada tema para construir el QPalette (deben coincidir con los
+# usados en el QSS). Sin QPalette, las vistas que Qt no estiliza por QSS
+# (QTableWidget, QMessageBox…) usarían la paleta del sistema y podrían mostrar
+# texto oscuro sobre fondo oscuro.
+_PALETA_OSCURA = {
+    "fondo": "#1E1E20", "base": "#3A3A3C", "alt": "#2A2A2C", "borde": "#36363A",
+    "texto": "#EBEBF0", "texto3": "#6E6E73", "acento": "#0A84FF",
+}
+_PALETA_CLARA = {
+    "fondo": "#ECECEE", "base": "#FFFFFF", "alt": "#F4F4F6", "borde": "#D9D9DF",
+    "texto": "#1D1D1F", "texto3": "#8E8E93", "acento": "#007AFF",
+}
+
+
+def _crear_palette(c: dict):
+    from PySide6.QtGui import QColor, QPalette
+    R = QPalette.ColorRole
+    G = QPalette.ColorGroup
+    p = QPalette()
+    p.setColor(R.Window, QColor(c["fondo"]))
+    p.setColor(R.WindowText, QColor(c["texto"]))
+    p.setColor(R.Base, QColor(c["base"]))
+    p.setColor(R.AlternateBase, QColor(c["alt"]))
+    p.setColor(R.Text, QColor(c["texto"]))
+    p.setColor(R.Button, QColor(c["base"]))
+    p.setColor(R.ButtonText, QColor(c["texto"]))
+    p.setColor(R.BrightText, QColor("#FFFFFF"))
+    p.setColor(R.ToolTipBase, QColor(c["base"]))
+    p.setColor(R.ToolTipText, QColor(c["texto"]))
+    p.setColor(R.PlaceholderText, QColor(c["texto3"]))
+    p.setColor(R.Highlight, QColor(c["acento"]))
+    p.setColor(R.HighlightedText, QColor("#FFFFFF"))
+    p.setColor(R.Link, QColor(c["acento"]))
+    for role in (R.WindowText, R.Text, R.ButtonText):
+        p.setColor(G.Disabled, role, QColor(c["texto3"]))
+    return p
+
+
 class GestorTemas:
     """Aplica el tema visual seleccionado a toda la aplicación Qt."""
 
@@ -475,8 +543,10 @@ class GestorTemas:
             return
         if tema == Tema.OSCURO:
             app.setStyleSheet(_qss_oscuro())
+            app.setPalette(_crear_palette(_PALETA_OSCURA))
         else:
             app.setStyleSheet(_qss_claro())
+            app.setPalette(_crear_palette(_PALETA_CLARA))
 
     @staticmethod
     def alternar(tema_actual: Tema) -> Tema:

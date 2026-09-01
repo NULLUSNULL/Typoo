@@ -473,17 +473,21 @@ class EditorMarkdown(QPlainTextEdit):
             if self._config.ia_habilitada:
                 menu.addSeparator()
                 if self.textCursor().hasSelection():
-                    ac_corregir = menu.addAction("Corregir ortografía y gramática")
+                    ac_corregir = menu.addAction("✅  Corregir ortografía y gramática")
                     ac_corregir.triggered.connect(
                         lambda checked=False: self.ia_reescribir.emit("correccion"))
                     from ai.tareas import INTENCIONES_REESCRITURA
-                    submenu = menu.addMenu("Reescribir con IA")
+                    _emoji = {"pulir": "✨", "condensar": "✂️", "expandir": "➕",
+                              "formal": "🎩", "coloquial": "💬", "mostrar": "🎬",
+                              "dialogo": "🗨️"}
+                    submenu = menu.addMenu("✍️  Reescribir con IA")
                     for intencion in INTENCIONES_REESCRITURA:
-                        accion = submenu.addAction(intencion.etiqueta)
+                        etiqueta = f"{_emoji.get(intencion.id, '•')}  {intencion.etiqueta}"
+                        accion = submenu.addAction(etiqueta)
                         accion.triggered.connect(
                             lambda checked=False, i=intencion.id: self.ia_reescribir.emit(i))
                 # No requiere selección: ayuda a continuar desde el punto actual.
-                accion_ideas = menu.addAction("Tormenta de ideas: ¿cómo continuar?…")
+                accion_ideas = menu.addAction("💡  Tormenta de ideas: ¿cómo continuar?…")
                 accion_ideas.triggered.connect(lambda checked=False: self.ia_tormenta.emit())
         except Exception:
             pass
