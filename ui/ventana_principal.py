@@ -51,6 +51,7 @@ from widgets.explorador_proyecto import ExploradorProyecto
 from widgets.panel_pestanas import PanelPestanas
 from widgets.panel_metadatos import PanelMetadatos
 from widgets.panel_tramas import PanelTramas
+from widgets.panel_asistente import PanelAsistente
 
 
 class VentanaPrincipal(QMainWindow):
@@ -171,6 +172,20 @@ class VentanaPrincipal(QMainWindow):
         self.addDockWidget(Qt.DockWidgetArea.BottomDockWidgetArea, dock_tramas)
         dock_tramas.hide()
         self._dock_tramas = dock_tramas
+
+        # Asistente de IA (chat con contexto): panel lateral derecho, plegable.
+        self._panel_asistente = PanelAsistente()
+        self._panel_asistente.establecer_gestor(self._gestor)
+        dock_asistente = QDockWidget("Asistente", self)
+        dock_asistente.setObjectName("DockAsistente")
+        dock_asistente.setWidget(self._panel_asistente)
+        dock_asistente.setAllowedAreas(
+            Qt.DockWidgetArea.RightDockWidgetArea |
+            Qt.DockWidgetArea.LeftDockWidgetArea
+        )
+        self.addDockWidget(Qt.DockWidgetArea.RightDockWidgetArea, dock_asistente)
+        dock_asistente.hide()
+        self._dock_asistente = dock_asistente
 
     # ─── Sistema de menús ─────────────────────────────────────────────────────
 
@@ -369,6 +384,11 @@ class VentanaPrincipal(QMainWindow):
                 ac = QAction(etiqueta, self)
                 ac.triggered.connect(lambda checked=False, m=metodo: m())
                 m_dossier.addAction(ac)
+
+            menu.addSeparator()
+            ac_chat = QAction("Asistente (chat con contexto)…", self)
+            ac_chat.triggered.connect(self._abrir_asistente)
+            menu.addAction(ac_chat)
 
     def _accion(
         self,
@@ -1407,6 +1427,16 @@ class VentanaPrincipal(QMainWindow):
             etiqueta_original="Ficha", etiqueta_sugerencia="Informe de coherencia",
             parent=self)
         dialogo.exec()
+
+    def _abrir_asistente(self) -> None:
+        if not self._config.ia_habilitada:
+            self._configurar_ia()
+            if not self._config.ia_habilitada:
+                return
+            self._reconstruir_menu_ia()
+        self._dock_asistente.show()
+        self._dock_asistente.raise_()
+        self._panel_asistente.poner_foco()
 
     # ─── Cierre de la ventana ─────────────────────────────────────────────────
 

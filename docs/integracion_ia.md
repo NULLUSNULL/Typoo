@@ -127,7 +127,10 @@ fichas de personajes/ubicaciones y tramas.
   grande), descarga con progreso/cancelación en `ai/modelos.py`, gestor visual
   (`Modelos embebidos`) y proveedor `embebido` que ejecuta con `llama-cpp-python`
   (dependencia opcional, carga perezosa y cacheada).
-- **Fase 4 — Estructura/chat con contexto RAG (pendiente)** sobre el proyecto.
+- **Fase 4 — Chat con contexto (RAG) ✅ (hecho):** panel lateral «Asistente»
+  que responde preguntas sobre el manuscrito. Recuperación léxica ligera
+  (BM25, `ai/recuperacion.py`, sin dependencias) sobre escenas y dossier; cita
+  las fuentes usadas y mantiene el historial de la conversación.
 
 ## Dependencias (todas opcionales, por modo)
 

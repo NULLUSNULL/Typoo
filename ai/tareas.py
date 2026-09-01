@@ -166,3 +166,30 @@ def mensajes_coherencia(nombre: str, ficha_texto: str,
             "evidencia. Si no detectas incoherencias, dilo claramente.\n\n"
             f"FICHA:\n{ficha_texto}\n\nESCENAS:\n{escenas_texto}"},
     ]
+
+
+# ─── Fase 4: chat con contexto (RAG) ─────────────────────────────────────────
+
+_SISTEMA_CHAT = (
+    "Eres el asistente de escritura de una novela. Respondes en español, de "
+    "forma concreta y útil, basándote en el CONTEXTO del manuscrito que se te "
+    "proporciona. Si la respuesta no está en el contexto, dilo con claridad en "
+    "lugar de inventarla. Cuando cites algo, menciona el nombre de la escena, "
+    "personaje o ubicación."
+)
+
+
+def mensajes_chat(pregunta: str, contexto: str,
+                  historial: list[Mensaje] | None = None) -> list[Mensaje]:
+    """Mensajes para una pregunta del chat, con el contexto recuperado y el
+    historial reciente de la conversación."""
+    mensajes: list[Mensaje] = [{"role": "system", "content": _SISTEMA_CHAT}]
+    if historial:
+        mensajes.extend(historial)
+    if contexto:
+        contenido = (f"CONTEXTO del manuscrito:\n{contexto}\n\n"
+                     f"---\nPregunta: {pregunta}")
+    else:
+        contenido = f"Pregunta: {pregunta}"
+    mensajes.append({"role": "user", "content": contenido})
+    return mensajes
