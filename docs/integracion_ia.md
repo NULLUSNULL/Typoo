@@ -115,16 +115,17 @@ fichas de personajes/ubicaciones y tramas.
 
 ## Plan por fases
 
-- **Fase 0 — Cimientos (sin funciones aún):** capa de proveedores + config
-  opt-in + asistente de configuración + «Probar conexión». Empezar por el modo
-  **local (Ollama/LM Studio)** y **nube (OpenAI-compat + Anthropic)** porque no
-  requieren descargas pesadas.
-- **Fase 1 — Primeras funciones:** *Reescribir selección* y *Continuar escena*
-  (menú contextual del editor) + panel «Asistente» básico en streaming.
-- **Fase 2 — Dossier:** sinopsis automática, fichas asistidas, guardián de
-  coherencia.
-- **Fase 3 — Embebido:** `llama-cpp-python`, catálogo y descargador de modelos.
-- **Fase 4 — Estructura/chat con contexto (RAG)** sobre el proyecto.
+- **Fase 0 — Cimientos ✅ (hecho):** capa de proveedores (nube OpenAI-compat +
+  Anthropic; local Ollama/LM Studio), config opt-in, asistente de configuración
+  y «Probar conexión».
+- **Fase 1 — Reescritura ✅ (hecho):** *Reescribir selección* con intenciones y
+  diálogo de resultado en streaming (reemplazar / insertar debajo / detener).
+- **Fase 2 — Dossier ✅ (hecho):** sinopsis automática (rellena `Resumen`),
+  fichas asistidas (rellena campos vacíos de personaje/ubicación) y guardián de
+  coherencia (informe que contrasta la ficha con las escenas del personaje).
+- **Fase 3 — Embebido (pendiente):** `llama-cpp-python`, catálogo y descargador
+  de modelos GGUF.
+- **Fase 4 — Estructura/chat con contexto RAG (pendiente)** sobre el proyecto.
 
 ## Dependencias (todas opcionales, por modo)
 

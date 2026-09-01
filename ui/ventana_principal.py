@@ -359,6 +359,17 @@ class VentanaPrincipal(QMainWindow):
                 )
                 submenu.addAction(ac)
 
+            menu.addSeparator()
+            m_dossier = menu.addMenu("Dossier")
+            for etiqueta, metodo in (
+                ("Generar sinopsis de la escena activa", self._ia_sinopsis),
+                ("Sugerir ficha del elemento activo", self._ia_ficha),
+                ("Revisar coherencia del personaje activo", self._ia_coherencia),
+            ):
+                ac = QAction(etiqueta, self)
+                ac.triggered.connect(lambda checked=False, m=metodo: m())
+                m_dossier.addAction(ac)
+
     def _accion(
         self,
         texto: str,
@@ -1249,6 +1260,153 @@ class VentanaPrincipal(QMainWindow):
                 cur.movePosition(QTextCursor.MoveOperation.EndOfBlock)
                 cur.insertText("\n\n" + dialogo.texto_resultado)
             editor.setTextCursor(cur)
+
+    # -- Dossier asistido por IA ---------------------------------------------
+
+    def _proveedor_ia(self):
+        from ai.proveedores import crear_proveedor_desde_config
+        return crear_proveedor_desde_config(self._config)
+
+    def _item_editor_activo(self):
+        editor = self._editor_activo()
+        if not editor:
+            return None, None
+        return editor, getattr(editor, "item", None)
+
+    def _escenas_de_personaje(self, personaje_id: str, max_total: int = 6000) -> str:
+        """Texto de las escenas donde aparece el personaje (por metadatos)."""
+        if not self._gestor.hay_proyecto:
+            return ""
+        proyecto = self._gestor.proyecto_activo
+        partes: list[str] = []
+        total = 0
+        for escena in proyecto.escenas_en_orden():
+            meta = escena.metadatos or {}
+            refs = meta.get("personajes") or []
+            relacionada = (isinstance(refs, list) and personaje_id in refs) \
+                or meta.get("pov") == personaje_id
+            if not relacionada:
+                continue
+            try:
+                texto = (self._gestor.leer_documento(escena) or "").strip()
+            except Exception:
+                texto = ""
+            if not texto:
+                continue
+            bloque = f"[{escena.nombre}]\n{texto[:700]}"
+            if total + len(bloque) > max_total:
+                partes.append("[…]")
+                break
+            partes.append(bloque)
+            total += len(bloque)
+        return "\n\n".join(partes)
+
+    def _ia_sinopsis(self) -> None:
+        if not self._config.ia_habilitada:
+            return
+        editor, item = self._item_editor_activo()
+        if not item:
+            self._mostrar_advertencia("Sin documento", "Abre una escena o capítulo primero.")
+            return
+        if item.tipo not in (TipoElemento.ESCENA, TipoElemento.CAPITULO):
+            self._mostrar_advertencia(
+                "No aplicable", "La sinopsis se genera para escenas o capítulos.")
+            return
+        texto = editor.toPlainText().strip()
+        if not texto:
+            self._mostrar_advertencia("Vacío", "El documento no tiene texto.")
+            return
+        from ai.contexto import truncar
+        from ai.tareas import mensajes_sinopsis
+        from ui.dialogos.resultado_ia import DialogoResultadoIA
+        mensajes = mensajes_sinopsis(item.nombre, truncar(texto, 8000))
+        dialogo = DialogoResultadoIA(
+            self._proveedor_ia(), mensajes, truncar(texto, 4000),
+            titulo=f"Sinopsis: {item.nombre}",
+            acciones=[("aplicar", "Usar como resumen")],
+            etiqueta_original="Escena", etiqueta_sugerencia="Sinopsis propuesta",
+            parent=self)
+        if dialogo.exec() and dialogo.accion == "aplicar" and dialogo.texto_resultado.strip():
+            item.metadatos["resumen"] = dialogo.texto_resultado.strip()
+            self._persistir_metadatos()
+            self._panel_metadatos.mostrar_item(item)
+            self._barra_estado.mostrar_mensaje("Resumen actualizado con la sinopsis.", 3000)
+
+    def _ia_ficha(self) -> None:
+        if not self._config.ia_habilitada:
+            return
+        editor, item = self._item_editor_activo()
+        if not item or item.tipo not in (TipoElemento.PERSONAJE, TipoElemento.UBICACION):
+            self._mostrar_advertencia(
+                "No aplicable", "Abre un personaje o una ubicación para sugerir su ficha.")
+            return
+        from core.metadatos import etiqueta_tipo
+        from ai.contexto import truncar, ficha_a_texto
+        from ai.tareas import campos_ficha, mensajes_ficha, parsear_campos
+        from ui.dialogos.resultado_ia import DialogoResultadoIA
+
+        descripcion = editor.toPlainText().strip()
+        partes = [f"Ficha actual:\n{ficha_a_texto(item)}"]
+        if descripcion:
+            partes.append(f"Descripción / notas:\n{descripcion}")
+        if item.tipo == TipoElemento.PERSONAJE:
+            escenas = self._escenas_de_personaje(item.id, max_total=4000)
+            if escenas:
+                partes.append(f"Apariciones en escenas:\n{escenas}")
+        contexto = truncar("\n\n".join(partes), 8000)
+        campos = campos_ficha(item.tipo)
+        mensajes = mensajes_ficha(etiqueta_tipo(item.tipo), item.nombre, campos, contexto)
+        dialogo = DialogoResultadoIA(
+            self._proveedor_ia(), mensajes, ficha_a_texto(item),
+            titulo=f"Ficha sugerida: {item.nombre}",
+            acciones=[("aplicar", "Aplicar a campos vacíos")],
+            etiqueta_original="Ficha actual", etiqueta_sugerencia="Sugerencia",
+            parent=self)
+        if dialogo.exec() and dialogo.accion == "aplicar" and dialogo.texto_resultado.strip():
+            propuesto = parsear_campos(dialogo.texto_resultado, campos)
+            aplicados = 0
+            for clave, valor in propuesto.items():
+                actual = item.metadatos.get(clave)
+                if not (isinstance(actual, str) and actual.strip()):
+                    item.metadatos[clave] = valor
+                    aplicados += 1
+            if aplicados:
+                self._persistir_metadatos()
+                self._panel_metadatos.mostrar_item(item)
+                self._barra_estado.mostrar_mensaje(
+                    f"Ficha actualizada: {aplicados} campo(s) vacío(s) rellenado(s).", 4000)
+            else:
+                self._mostrar_advertencia(
+                    "Sin cambios",
+                    "No había campos vacíos que rellenar (los ya escritos se conservan).")
+
+    def _ia_coherencia(self) -> None:
+        if not self._config.ia_habilitada:
+            return
+        editor, item = self._item_editor_activo()
+        if not item or item.tipo != TipoElemento.PERSONAJE:
+            self._mostrar_advertencia(
+                "No aplicable", "Abre un personaje para revisar su coherencia.")
+            return
+        from ai.contexto import truncar, ficha_a_texto
+        from ai.tareas import mensajes_coherencia
+        from ui.dialogos.resultado_ia import DialogoResultadoIA
+
+        escenas = self._escenas_de_personaje(item.id, max_total=6000)
+        if not escenas.strip():
+            self._mostrar_advertencia(
+                "Sin escenas",
+                "Este personaje no está vinculado a ninguna escena. Usa los campos "
+                "«Personajes presentes» o «Punto de vista» de las escenas.")
+            return
+        mensajes = mensajes_coherencia(item.nombre, ficha_a_texto(item), truncar(escenas, 8000))
+        dialogo = DialogoResultadoIA(
+            self._proveedor_ia(), mensajes, ficha_a_texto(item),
+            titulo=f"Coherencia: {item.nombre}",
+            acciones=[],  # informe de solo lectura
+            etiqueta_original="Ficha", etiqueta_sugerencia="Informe de coherencia",
+            parent=self)
+        dialogo.exec()
 
     # ─── Cierre de la ventana ─────────────────────────────────────────────────
 

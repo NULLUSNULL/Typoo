@@ -36,12 +36,24 @@ class DialogoResultadoIA(QDialog):
         texto_original: str,
         *,
         titulo: str = "Sugerencia de la IA",
+        acciones: Optional[list[tuple[str, str]]] = None,
+        etiqueta_original: str = "Original",
+        etiqueta_sugerencia: str = "Sugerencia",
         parent: Optional[QWidget] = None,
     ) -> None:
         super().__init__(parent)
         self.accion: Optional[str] = None
         self.texto_resultado: str = ""
         self._original = texto_original
+        # (id, etiqueta) de los botones que aplican el resultado. Lista vacía =
+        # modo solo lectura (informe); None = acciones de reescritura por defecto.
+        if acciones is None:
+            acciones = [("reemplazar", "Reemplazar selección"),
+                        ("insertar", "Insertar debajo")]
+        self._acciones = acciones
+        self._etiqueta_original = etiqueta_original
+        self._etiqueta_sugerencia = etiqueta_sugerencia
+        self._botones_aplicar: list[QPushButton] = []
 
         self.setWindowTitle(titulo)
         self.resize(820, 480)
@@ -61,14 +73,14 @@ class DialogoResultadoIA(QDialog):
         split = QSplitter(Qt.Orientation.Horizontal)
 
         izq = QWidget(); lay_izq = QVBoxLayout(izq); lay_izq.setContentsMargins(0, 0, 0, 0)
-        lay_izq.addWidget(QLabel("Original"))
+        lay_izq.addWidget(QLabel(self._etiqueta_original))
         self._txt_original = QPlainTextEdit(self._original)
         self._txt_original.setReadOnly(True)
         lay_izq.addWidget(self._txt_original)
         split.addWidget(izq)
 
         der = QWidget(); lay_der = QVBoxLayout(der); lay_der.setContentsMargins(0, 0, 0, 0)
-        lay_der.addWidget(QLabel("Sugerencia"))
+        lay_der.addWidget(QLabel(self._etiqueta_sugerencia))
         self._txt_sugerencia = QPlainTextEdit()
         self._txt_sugerencia.setReadOnly(True)
         lay_der.addWidget(self._txt_sugerencia)
@@ -87,15 +99,12 @@ class DialogoResultadoIA(QDialog):
         fila.addWidget(self._btn_detener)
         fila.addStretch(1)
 
-        self._btn_reemplazar = QPushButton("Reemplazar selección")
-        self._btn_reemplazar.setEnabled(False)
-        self._btn_reemplazar.clicked.connect(lambda: self._aplicar("reemplazar"))
-        fila.addWidget(self._btn_reemplazar)
-
-        self._btn_insertar = QPushButton("Insertar debajo")
-        self._btn_insertar.setEnabled(False)
-        self._btn_insertar.clicked.connect(lambda: self._aplicar("insertar"))
-        fila.addWidget(self._btn_insertar)
+        for id_accion, etiqueta in self._acciones:
+            btn = QPushButton(etiqueta)
+            btn.setEnabled(False)
+            btn.clicked.connect(lambda checked=False, a=id_accion: self._aplicar(a))
+            fila.addWidget(btn)
+            self._botones_aplicar.append(btn)
 
         self._btn_cerrar = QPushButton("Cerrar")
         self._btn_cerrar.clicked.connect(self.reject)
@@ -113,8 +122,8 @@ class DialogoResultadoIA(QDialog):
         self._lbl_estado.setText("Listo. Revisa la sugerencia y aplícala si te convence.")
         self._btn_detener.setEnabled(False)
         habilitar = bool(self.texto_resultado.strip())
-        self._btn_reemplazar.setEnabled(habilitar)
-        self._btn_insertar.setEnabled(habilitar)
+        for btn in self._botones_aplicar:
+            btn.setEnabled(habilitar)
 
     def _al_error(self, mensaje: str) -> None:
         self._lbl_estado.setStyleSheet("color: #FF3B30;")
@@ -129,8 +138,8 @@ class DialogoResultadoIA(QDialog):
         self._btn_detener.setEnabled(False)
         texto = self._txt_sugerencia.toPlainText()
         self.texto_resultado = texto
-        self._btn_reemplazar.setEnabled(bool(texto.strip()))
-        self._btn_insertar.setEnabled(bool(texto.strip()))
+        for btn in self._botones_aplicar:
+            btn.setEnabled(bool(texto.strip()))
 
     def _aplicar(self, accion: str) -> None:
         self.accion = accion

@@ -4,9 +4,12 @@
 
 from __future__ import annotations
 
+import re
 from dataclasses import dataclass
 
 from ai.proveedores import Mensaje
+from core.constantes import TipoElemento
+from core.metadatos import esquema_para
 
 _SISTEMA_EDITOR = (
     "Eres un editor literario experto que trabaja en español. Mejoras la prosa "
@@ -64,4 +67,102 @@ def mensajes_reescritura(texto: str, intencion: Intencion,
     return [
         {"role": "system", "content": _SISTEMA_EDITOR},
         {"role": "user", "content": "\n".join(partes)},
+    ]
+
+
+# ─── Fase 2: dossier (sinopsis, fichas, coherencia) ──────────────────────────
+
+_SISTEMA_SINOPSIS = (
+    "Eres un editor literario que trabaja en español. Escribes sinopsis breves "
+    "y claras. Respondes ÚNICAMENTE con la sinopsis, sin comentarios ni comillas."
+)
+
+_SISTEMA_ANALISTA = (
+    "Eres un editor literario meticuloso que trabaja en español. Analizas el "
+    "material de una novela y respondes de forma concreta, sin inventar datos "
+    "que no aparezcan en el texto."
+)
+
+
+def mensajes_sinopsis(nombre: str, texto: str) -> list[Mensaje]:
+    """Sinopsis de 1–3 frases de una escena o capítulo, para el campo Resumen."""
+    return [
+        {"role": "system", "content": _SISTEMA_SINOPSIS},
+        {"role": "user", "content":
+            f"Resume en 1 a 3 frases lo esencial de «{nombre}» (qué ocurre, a "
+            f"quién y con qué consecuencia). Responde solo con la sinopsis.\n\n"
+            f"Texto:\n{texto}"},
+    ]
+
+
+# Campos de ficha que la IA puede rellenar (solo texto libre; se excluyen los
+# desplegables/numéricos, que el usuario elige a mano).
+def campos_ficha(tipo: TipoElemento) -> list[tuple[str, str]]:
+    campos = []
+    for c in esquema_para(tipo):
+        if c.tipo in ("line", "multiline"):
+            campos.append((c.clave, c.etiqueta))
+    return campos
+
+
+def mensajes_ficha(tipo_etiqueta: str, nombre: str,
+                   campos: list[tuple[str, str]], contexto: str) -> list[Mensaje]:
+    """Propone valores para los campos de una ficha de personaje/ubicación."""
+    lista = "\n".join(f"- {etiqueta}" for _clave, etiqueta in campos)
+    return [
+        {"role": "system", "content": _SISTEMA_ANALISTA},
+        {"role": "user", "content":
+            f"A partir del material siguiente sobre {tipo_etiqueta.lower()} "
+            f"«{nombre}», propón el contenido de estos campos de su ficha:\n{lista}\n\n"
+            "Devuelve una línea por campo con el formato «Campo: valor». Rellena "
+            "solo los campos para los que el texto aporte información; omite los "
+            "demás. No inventes datos que contradigan el material.\n\n"
+            f"Material:\n{contexto}"},
+    ]
+
+
+def parsear_campos(respuesta: str, campos: list[tuple[str, str]]) -> dict[str, str]:
+    """Convierte la respuesta «Campo: valor» en {clave: valor} para los campos dados."""
+    etiqueta_a_clave = {etiqueta.lower(): clave for clave, etiqueta in campos}
+    resultado: dict[str, str] = {}
+    clave_actual: str | None = None
+    buffer: list[str] = []
+
+    def _volcar() -> None:
+        if clave_actual is not None:
+            valor = "\n".join(buffer).strip()
+            if valor:
+                resultado[clave_actual] = valor
+
+    for linea in respuesta.splitlines():
+        m = re.match(r"^\s*[-*]?\s*([\wÁÉÍÓÚÑáéíóúñ /()·-]+?)\s*:\s*(.*)$", linea)
+        etiqueta = m.group(1).strip().lower() if m else None
+        if m and etiqueta in etiqueta_a_clave:
+            _volcar()
+            clave_actual = etiqueta_a_clave[etiqueta]
+            buffer = [m.group(2)]
+        elif m:
+            # Línea con forma «Etiqueta: …» pero de un campo desconocido: cierra el
+            # campo en curso para no absorber contenido ajeno (p. ej. desplegables).
+            _volcar()
+            clave_actual = None
+            buffer = []
+        elif clave_actual is not None:
+            buffer.append(linea)
+    _volcar()
+    return resultado
+
+
+def mensajes_coherencia(nombre: str, ficha_texto: str,
+                        escenas_texto: str) -> list[Mensaje]:
+    """Contrasta la ficha de un personaje con sus apariciones en las escenas."""
+    return [
+        {"role": "system", "content": _SISTEMA_ANALISTA},
+        {"role": "user", "content":
+            f"Revisa la coherencia del personaje «{nombre}». Compara su ficha con "
+            "lo que hace y dice en las escenas y señala posibles contradicciones "
+            "(rasgos físicos, edad, personalidad, cronología, nombres). Enumera "
+            "cada hallazgo en una línea empezando por «- » y cita brevemente la "
+            "evidencia. Si no detectas incoherencias, dilo claramente.\n\n"
+            f"FICHA:\n{ficha_texto}\n\nESCENAS:\n{escenas_texto}"},
     ]
