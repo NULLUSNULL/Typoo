@@ -129,6 +129,59 @@ class Configuracion:
             self._settings.setValue(str(i), r)
         self._settings.endGroup()
 
+    # ─── Asistente de IA (opcional, desactivado por defecto) ──────────────────
+
+    @property
+    def ia_habilitada(self) -> bool:
+        return self._settings.value("ia/habilitada", False, type=bool)
+
+    @ia_habilitada.setter
+    def ia_habilitada(self, valor: bool) -> None:
+        self._settings.setValue("ia/habilitada", bool(valor))
+
+    @property
+    def ia_modo(self) -> str:
+        """Modo del proveedor: 'nube' | 'local' | 'embebido'."""
+        return self._settings.value("ia/modo", "nube")
+
+    @ia_modo.setter
+    def ia_modo(self, valor: str) -> None:
+        self._settings.setValue("ia/modo", valor)
+
+    @property
+    def ia_proveedor(self) -> str:
+        """Identificador del proveedor: openai | anthropic | nvidia | groq |
+        mistral | ollama | lmstudio."""
+        return self._settings.value("ia/proveedor", "openai")
+
+    @ia_proveedor.setter
+    def ia_proveedor(self, valor: str) -> None:
+        self._settings.setValue("ia/proveedor", valor)
+
+    @property
+    def ia_modelo(self) -> str:
+        return self._settings.value("ia/modelo", "")
+
+    @ia_modelo.setter
+    def ia_modelo(self, valor: str) -> None:
+        self._settings.setValue("ia/modelo", valor)
+
+    @property
+    def ia_base_url(self) -> str:
+        """URL base para proveedores locales o personalizados (vacío = por defecto)."""
+        return self._settings.value("ia/base_url", "")
+
+    @ia_base_url.setter
+    def ia_base_url(self, valor: str) -> None:
+        self._settings.setValue("ia/base_url", valor)
+
+    def ia_api_key(self, proveedor: str) -> str:
+        """Clave API guardada para un proveedor (cadena vacía si no hay)."""
+        return self._settings.value(f"ia/claves/{proveedor}", "") or ""
+
+    def set_ia_api_key(self, proveedor: str, valor: str) -> None:
+        self._settings.setValue(f"ia/claves/{proveedor}", valor or "")
+
     # ─── Geometría de la ventana ──────────────────────────────────────────────
 
     @property
