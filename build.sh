@@ -62,6 +62,24 @@ if [[ "$SO" == "Darwin" ]]; then
     fi
 fi
 
+# ── 3b) Motor de modelos embebidos (llama-cpp-python) ─────────────────────────
+# Para que los modelos embebidos funcionen en la app compilada SIN que el
+# usuario instale nada, se intenta instalar y empaquetar llama-cpp-python.
+# Es opcional: si no hay wheel disponible, se avisa y se compila sin él (los
+# modos nube/local siguen funcionando). Desactívalo con TYPOO_SIN_EMBEBIDO=1.
+EMBEBIDO_ARGS=()
+if [[ "${TYPOO_SIN_EMBEBIDO:-0}" != "1" ]]; then
+    if ! "$PY" -c "import llama_cpp" >/dev/null 2>&1; then
+        echo "      Instalando llama-cpp-python (motor de modelos embebidos)…"
+        "$PY" -m pip install llama-cpp-python || \
+            echo "      (Aviso) No se pudo instalar llama-cpp-python; se compila sin él."
+    fi
+    if "$PY" -c "import llama_cpp" >/dev/null 2>&1; then
+        EMBEBIDO_ARGS=(--collect-all llama_cpp)
+        echo "      Modelos embebidos: llama-cpp-python se empaquetará en la app."
+    fi
+fi
+
 # ── 4) Compilación ───────────────────────────────────────────────────────────
 # En macOS/Linux el separador de --add-data es ':' (en Windows es ';').
 echo "[2/4] Compilando Typoo para $SO..."
@@ -71,6 +89,7 @@ echo "[2/4] Compilando Typoo para $SO..."
     --name Typoo \
     --add-data "$PROJ/assets:assets" \
     "${ICON_ARGS[@]}" \
+    "${EMBEBIDO_ARGS[@]}" \
     --distpath "$PROJ/dist" \
     --workpath "$PROJ/build_tmp" \
     --specpath "$PROJ/build_tmp" \

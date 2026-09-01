@@ -69,6 +69,11 @@ PROVEEDORES: dict[str, InfoProveedor] = {
         "", False, "",
         "Modelos que se ejecutan en tu equipo, sin conexión. "
         "Requiere la dependencia llama-cpp-python."),
+    "apple": InfoProveedor(
+        "apple", "Apple Foundation (macOS)", "apple", "apple",
+        "", False, "",
+        "Modelo integrado en macOS con Apple Intelligence (Apple Silicon). "
+        "No consume disco ni conexión. Requiere el ayudante «typoo-apple-llm»."),
 }
 
 
@@ -190,8 +195,49 @@ class ProveedorIA:
             yield from self._stream_ollama(mensajes, temperatura, cancelar)
         elif self.protocolo == "embebido":
             yield from self._stream_embebido(mensajes, temperatura, max_tokens, cancelar)
+        elif self.protocolo == "apple":
+            yield from self._stream_apple(mensajes, temperatura, max_tokens, cancelar)
         else:
             raise ErrorIA(f"Protocolo no soportado: {self.protocolo}")
+
+    def _stream_apple(self, mensajes, temperatura, max_tokens, cancelar):
+        import json
+        import subprocess
+        from ai import apple
+
+        helper = apple.ruta_helper()
+        if not helper:
+            raise ErrorIA(
+                "No se encontró el ayudante «typoo-apple-llm». Compílalo desde "
+                "extras/apple_foundation (ver README).")
+        payload = json.dumps({
+            "messages": mensajes,
+            "temperature": temperatura,
+            "max_tokens": max_tokens,
+        })
+        try:
+            proc = subprocess.Popen(
+                [helper], stdin=subprocess.PIPE, stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE)
+        except OSError as e:
+            raise ErrorIA(f"No se pudo ejecutar el ayudante de Apple: {e}") from e
+        try:
+            proc.stdin.write((payload + "\n").encode("utf-8"))
+            proc.stdin.flush()
+            proc.stdin.close()
+            while True:
+                if cancelar and cancelar():
+                    proc.terminate()
+                    break
+                trozo = proc.stdout.read1(4096)
+                if not trozo:
+                    break
+                yield trozo.decode("utf-8", "replace")
+        finally:
+            proc.wait()
+        if proc.returncode not in (0, None) and not (cancelar and cancelar()):
+            err = (proc.stderr.read() or b"").decode("utf-8", "replace").strip()
+            raise ErrorIA(f"Apple Foundation: {err or 'error del ayudante'}")
 
     def _stream_embebido(self, mensajes, temperatura, max_tokens, cancelar):
         from ai import modelos
@@ -330,6 +376,9 @@ class ProveedorIA:
                 if not modelos.esta_descargado(info):
                     return False, f"El modelo «{info.etiqueta}» no está descargado."
                 return True, "Modelo embebido listo (se cargará al primer uso)."
+            if self.protocolo == "apple":
+                from ai import apple
+                return apple.estado()
         except ErrorIA as e:
             return False, str(e)
         except Exception as e:  # pragma: no cover - salvaguarda

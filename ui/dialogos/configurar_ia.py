@@ -61,7 +61,11 @@ class DialogoConfigurarIA(QDialog):
         form.setLabelAlignment(Qt.AlignmentFlag.AlignRight)
 
         self._combo_prov = QComboBox()
+        import sys
         for info in PROVEEDORES.values():
+            # El proveedor de Apple solo tiene sentido en macOS.
+            if info.id == "apple" and sys.platform != "darwin":
+                continue
             self._combo_prov.addItem(info.etiqueta, info.id)
         self._combo_prov.currentIndexChanged.connect(self._al_cambiar_proveedor)
         form.addRow("Proveedor:", self._combo_prov)
@@ -147,22 +151,24 @@ class DialogoConfigurarIA(QDialog):
     def _al_cambiar_proveedor(self) -> None:
         info = info_proveedor(self._proveedor_actual_id())
         es_embebido = info.modo == "embebido"
+        es_apple = info.protocolo == "apple"
+        # Apple no necesita modelo/URL/clave (usa el modelo del sistema).
+        campos_estandar = not es_embebido and not es_apple
 
-        # Campos de nube/local (modelo, URL, clave) frente al modo embebido.
-        self._lbl_modelo.setVisible(not es_embebido)
-        self._edit_modelo.setVisible(not es_embebido)
-        self._lbl_url.setVisible(not es_embebido)
-        self._edit_url.setVisible(not es_embebido)
-        self._lbl_clave.setVisible(not es_embebido and info.requiere_clave)
-        self._edit_clave.setVisible(not es_embebido and info.requiere_clave)
+        self._lbl_modelo.setVisible(campos_estandar)
+        self._edit_modelo.setVisible(campos_estandar)
+        self._lbl_url.setVisible(campos_estandar)
+        self._edit_url.setVisible(campos_estandar)
+        self._lbl_clave.setVisible(campos_estandar and info.requiere_clave)
+        self._edit_clave.setVisible(campos_estandar and info.requiere_clave)
         self._lbl_emb.setVisible(es_embebido)
         self._fila_embebido.setVisible(es_embebido)
 
-        if not es_embebido:
+        if campos_estandar:
             self._edit_modelo.setText(info.modelo_defecto)
             self._edit_url.setText(info.base_url)
             self._edit_clave.setText(self._config.ia_api_key(info.id))
-        else:
+        elif es_embebido:
             self._actualizar_label_embebido()
 
         self._lbl_ayuda.setText(info.ayuda)
@@ -188,6 +194,8 @@ class DialogoConfigurarIA(QDialog):
         info = info_proveedor(self._proveedor_actual_id())
         if info.modo == "embebido":
             return ProveedorIA(info, modelo=self._id_embebido)
+        if info.protocolo == "apple":
+            return ProveedorIA(info)
         return ProveedorIA(
             info,
             modelo=self._edit_modelo.text().strip(),
@@ -218,6 +226,9 @@ class DialogoConfigurarIA(QDialog):
         self._config.ia_modo = info.modo
         if info.modo == "embebido":
             self._config.ia_modelo = self._id_embebido
+            self._config.ia_base_url = ""
+        elif info.protocolo == "apple":
+            self._config.ia_modelo = ""
             self._config.ia_base_url = ""
         else:
             self._config.ia_modelo = self._edit_modelo.text().strip()

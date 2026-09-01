@@ -32,28 +32,29 @@ class InfoModelo:
         return f"https://huggingface.co/{self.repo}/resolve/main/{self.archivo}"
 
 
-# Tres niveles pensados para edición literaria en español. Son cuantizaciones
-# Q4_K_M (buen equilibrio calidad/tamaño); los identificadores de archivo pueden
-# actualizarse con el tiempo.
+# Tres niveles pensados para edición literaria en español, todos de la familia
+# Qwen3 (buen multilingüe) en cuantización Q4_K_M. Los repositorios/archivos de
+# Hugging Face pueden actualizarse; si una descarga da 404, basta con ajustar
+# `repo`/`archivo` aquí.
 CATALOGO: list[InfoModelo] = [
     InfoModelo(
-        "ligero", "Ligero · Llama 3.2 3B Instruct", "ligero",
-        "Rápido y ligero. Bien para pulir y sugerencias breves.",
-        "Recomendado: 8 GB de RAM.",
-        "bartowski/Llama-3.2-3B-Instruct-GGUF",
-        "Llama-3.2-3B-Instruct-Q4_K_M.gguf", 2.0),
+        "ligero", "Ligero · Qwen3 1.7B", "ligero",
+        "El más rápido y ligero. Bien para pulir y sugerencias breves.",
+        "Necesita ~1,2 GB de RAM libre.",
+        "Qwen/Qwen3-1.7B-GGUF",
+        "Qwen3-1.7B-Q4_K_M.gguf", 1.1),
     InfoModelo(
-        "medio", "Medio · Qwen2.5 7B Instruct", "medio",
-        "Equilibrado, buen español. Reescritura y análisis con solvencia.",
-        "Recomendado: 16 GB de RAM.",
-        "bartowski/Qwen2.5-7B-Instruct-GGUF",
-        "Qwen2.5-7B-Instruct-Q4_K_M.gguf", 4.7),
+        "medio", "Medio · Qwen3 4B (recomendado)", "medio",
+        "Equilibrio recomendado entre calidad y consumo. Buen español.",
+        "Necesita ~2,5–3 GB de RAM libre.",
+        "Qwen/Qwen3-4B-GGUF",
+        "Qwen3-4B-Q4_K_M.gguf", 2.5),
     InfoModelo(
-        "grande", "Grande · Qwen2.5 14B Instruct", "grande",
+        "grande", "Grande · Qwen3 14B", "grande",
         "El de mayor calidad. Para equipos potentes o con GPU.",
-        "Recomendado: 32 GB de RAM (o GPU dedicada).",
-        "bartowski/Qwen2.5-14B-Instruct-GGUF",
-        "Qwen2.5-14B-Instruct-Q4_K_M.gguf", 9.0),
+        "Necesita ~9–10 GB de RAM libre.",
+        "Qwen/Qwen3-14B-GGUF",
+        "Qwen3-14B-Q4_K_M.gguf", 9.0),
 ]
 
 

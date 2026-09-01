@@ -24,7 +24,8 @@
 |------|----------|----------|-------|-------|
 | **Nube (pago)** | OpenAI, Anthropic, NVIDIA NIM, Groq, Mistral… | Sí | API key del usuario | El texto sale del equipo. Muchos exponen API compatible con OpenAI. |
 | **Local (servidor)** | Ollama, LM Studio | Sí (localhost) | Gratis | El usuario ya tiene el motor corriendo; hablamos por HTTP local. |
-| **Embebida (descargable)** | GGUF vía `llama.cpp` | No | Gratis | La app descarga y ejecuta el modelo. Sin dependencias externas para el usuario. |
+| **Embebida (descargable)** | GGUF vía `llama.cpp` | No | Gratis | La app descarga y ejecuta el modelo. `llama-cpp-python` se empaqueta al compilar. |
+| **Apple Foundation (macOS)** | Modelo del sistema (Apple Intelligence) | No | Gratis | Solo macOS 26+ / Apple Silicon. Vía ayudante nativo `typoo-apple-llm` (ver `extras/apple_foundation`). |
 
 ### Capa de abstracción
 
@@ -59,14 +60,21 @@ iniciales, ajustables (el catálogo vive en `ai/modelos.py`):
 
 | Nivel | Equipo objetivo | Tamaño aprox. | Candidatos |
 |-------|-----------------|---------------|------------|
-| **Ligero** | Portátil, 8 GB RAM, sin GPU | ~2–3 GB (Q4) | Llama 3.2 3B Instruct · Qwen2.5 3B Instruct |
-| **Medio** | 16 GB RAM o GPU modesta | ~5–6 GB (Q4/Q5) | Mistral 7B Instruct · Qwen2.5 7B · Llama 3.1 8B |
-| **Grande** | 32 GB+ / GPU dedicada | ~15–20 GB | Mistral Small (24B) · Qwen2.5 14B/32B · Gemma 2 27B |
+| **Ligero** | Portátil, ~1,2 GB RAM libre | ~1,1 GB (Q4_K_M) | Qwen3 1.7B |
+| **Medio** (recomendado) | ~2,5–3 GB RAM libre | ~2,5 GB (Q4_K_M) | Qwen3 4B |
+| **Grande** | ~9–10 GB RAM libre / GPU | ~9 GB (Q4_K_M) | Qwen3 14B |
 
-Descarga desde Hugging Face con barra de progreso, verificación de hash y
-posibilidad de borrar el modelo para liberar espacio. La dependencia
-`llama-cpp-python` es **opcional**: solo se instala si el usuario elige el modo
-embebido (asistente de instalación desde la propia app).
+Los repositorios/archivos GGUF (repos oficiales de Qwen en Hugging Face) están
+en `ai/modelos.py`; si alguna descarga devuelve 404 por un cambio de nombre de
+archivo, se corrige ahí en una línea.
+
+Descarga desde Hugging Face con barra de progreso y posibilidad de borrar el
+modelo para liberar espacio. La dependencia `llama-cpp-python` se **empaqueta
+automáticamente al compilar** (`build.sh`/`build.bat` la instalan y PyInstaller
+la incluye con `--collect-all llama_cpp`), así que en la app distribuida los
+modelos embebidos funcionan sin que el usuario instale nada. En ejecución desde
+código sigue siendo opcional (solo se necesita para el modo embebido). Se puede
+excluir del build con la variable `TYPOO_SIN_EMBEBIDO=1`.
 
 ## Experiencia de usuario (opt-in)
 
