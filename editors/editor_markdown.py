@@ -473,6 +473,9 @@ class EditorMarkdown(QPlainTextEdit):
             if self._config.ia_habilitada:
                 menu.addSeparator()
                 if self.textCursor().hasSelection():
+                    ac_corregir = menu.addAction("Corregir ortografía y gramática")
+                    ac_corregir.triggered.connect(
+                        lambda checked=False: self.ia_reescribir.emit("correccion"))
                     from ai.tareas import INTENCIONES_REESCRITURA
                     submenu = menu.addMenu("Reescribir con IA")
                     for intencion in INTENCIONES_REESCRITURA:

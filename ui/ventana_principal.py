@@ -185,6 +185,7 @@ class VentanaPrincipal(QMainWindow):
         )
         self.addDockWidget(Qt.DockWidgetArea.RightDockWidgetArea, dock_asistente)
         dock_asistente.hide()
+        dock_asistente.visibilityChanged.connect(self._al_cambiar_visibilidad_asistente)
         self._dock_asistente = dock_asistente
 
     # ─── Sistema de menús ─────────────────────────────────────────────────────
@@ -285,6 +286,13 @@ class VentanaPrincipal(QMainWindow):
         )
         m_ver.addAction(self._ac_tramas)
 
+        self._ac_asistente = self._accion(
+            "Asistente de IA", "Ctrl+6",
+            self._alternar_asistente,
+            checkable=True, checked=False,
+        )
+        m_ver.addAction(self._ac_asistente)
+
         m_ver.addSeparator()
 
         self._ac_tema = self._accion(
@@ -331,7 +339,10 @@ class VentanaPrincipal(QMainWindow):
         # ── Menú Herramientas ─────────────────────────────────────────────────
         m_herr = barra.addMenu("&Herramientas")
 
-        ac = self._accion("&Preferencias…", "Ctrl+,", self._abrir_preferencias)
+        ac = self._accion("&Preferencias…", "Ctrl+,",
+                          lambda: self._abrir_preferencias())
+        # En macOS, Qt lo mueve al menú de la app (Typoo → Preferencias).
+        ac.setMenuRole(QAction.MenuRole.PreferencesRole)
         m_herr.addAction(ac)
 
         m_herr.addSeparator()
@@ -343,45 +354,10 @@ class VentanaPrincipal(QMainWindow):
         )
         m_herr.addAction(self._ac_concentracion)
 
-        # ── Menú IA (opcional, opt-in) ────────────────────────────────────────
-        self._menu_ia = barra.addMenu("&IA")
-        self._reconstruir_menu_ia()
-
         # ── Menú Ayuda ────────────────────────────────────────────────────────
         m_ayuda = barra.addMenu("A&yuda")
         ac = self._accion(f"Acerca de {NOMBRE_APP}", "", self._acerca_de)
         m_ayuda.addAction(ac)
-
-    # ─── Menú IA ──────────────────────────────────────────────────────────────
-
-    def _reconstruir_menu_ia(self) -> None:
-        """Rellena el menú IA según si el asistente está habilitado (opt-in).
-
-        La reescritura vive en el menú contextual del editor y el dossier en el
-        menú contextual del explorador; aquí quedan las acciones globales.
-        """
-        menu = self._menu_ia
-        menu.clear()
-
-        ac_cfg = self._accion("Configurar asistente…", "", self._configurar_ia)
-        menu.addAction(ac_cfg)
-
-        if self._config.ia_habilitada:
-            menu.addSeparator()
-            ac_chat = QAction("Asistente (chat con contexto)…", self)
-            ac_chat.triggered.connect(self._abrir_asistente)
-            menu.addAction(ac_chat)
-
-            menu.addSeparator()
-            ac_ayuda = QAction("Cómo usar la IA", self)
-            ac_ayuda.setEnabled(False)
-            menu.addAction(ac_ayuda)
-            for txt in ("• Reescribir: clic derecho sobre el texto seleccionado",
-                        "• Tormenta de ideas: clic derecho en el editor",
-                        "• Dossier: clic derecho en una escena/personaje/ubicación"):
-                a = QAction(txt, self)
-                a.setEnabled(False)
-                menu.addAction(a)
 
     def _accion(
         self,
@@ -1219,29 +1195,38 @@ class VentanaPrincipal(QMainWindow):
 
     # ─── Preferencias ─────────────────────────────────────────────────────────
 
-    def _abrir_preferencias(self) -> None:
-        dialogo = DialogoPreferencias(self)
+    def _abrir_preferencias(self, pestaña: str = "general") -> None:
+        dialogo = DialogoPreferencias(self, pestaña=pestaña)
         if dialogo.exec():
             self._autoguardado.detener()
             self._autoguardado.iniciar()
             self._reiniciar_timer_respaldo()
             self._aplicar_fuente_editores()
+            # Si la IA se desactivó, ocultar su panel.
+            if not self._config.ia_habilitada and self._dock_asistente.isVisible():
+                self._dock_asistente.hide()
             self._barra_estado.mostrar_mensaje("Preferencias guardadas.")
 
     # ─── Asistente de IA ──────────────────────────────────────────────────────
 
-    def _configurar_ia(self) -> None:
-        from ui.dialogos.configurar_ia import DialogoConfigurarIA
-        dialogo = DialogoConfigurarIA(self)
-        if dialogo.exec():
-            self._reconstruir_menu_ia()
-            if self._config.ia_habilitada:
-                from ai.proveedores import info_proveedor
-                info = info_proveedor(self._config.ia_proveedor)
-                self._barra_estado.mostrar_mensaje(
-                    f"Asistente de IA habilitado ({info.etiqueta}).", 3000)
-            else:
-                self._barra_estado.mostrar_mensaje("Asistente de IA desactivado.", 3000)
+    def _alternar_asistente(self) -> None:
+        """Muestra/oculta el panel del asistente (menú Ver)."""
+        mostrar = self._ac_asistente.isChecked()
+        if mostrar and not self._config.ia_habilitada:
+            # Aún no configurado: abrir Preferencias en la pestaña de IA.
+            self._abrir_preferencias(pestaña="ia")
+            if not self._config.ia_habilitada:
+                self._ac_asistente.setChecked(False)
+                return
+        self._dock_asistente.setVisible(mostrar)
+        if mostrar:
+            self._dock_asistente.raise_()
+            self._panel_asistente.poner_foco()
+
+    def _al_cambiar_visibilidad_asistente(self, visible: bool) -> None:
+        """Mantiene sincronizada la marca del menú Ver con el dock."""
+        if hasattr(self, "_ac_asistente"):
+            self._ac_asistente.setChecked(visible)
 
     def _reescribir_seleccion(self, intencion_id: str) -> None:
         if not self._config.ia_habilitada:
@@ -1260,15 +1245,20 @@ class VentanaPrincipal(QMainWindow):
         texto = texto.replace(" ", "\n")
 
         from ai.proveedores import crear_proveedor_desde_config
-        from ai.tareas import intencion_por_id, mensajes_reescritura
         from ui.dialogos.resultado_ia import DialogoResultadoIA
 
         proveedor = crear_proveedor_desde_config(self._config)
-        intencion = intencion_por_id(intencion_id)
-        mensajes = mensajes_reescritura(texto, intencion)
+        if intencion_id == "correccion":
+            from ai.tareas import mensajes_correccion
+            mensajes = mensajes_correccion(texto)
+            titulo = "Corregir ortografía y gramática"
+        else:
+            from ai.tareas import intencion_por_id, mensajes_reescritura
+            intencion = intencion_por_id(intencion_id)
+            mensajes = mensajes_reescritura(texto, intencion)
+            titulo = f"Reescribir: {intencion.etiqueta}"
         dialogo = DialogoResultadoIA(
-            proveedor, mensajes, texto,
-            titulo=f"Reescribir: {intencion.etiqueta}", parent=self)
+            proveedor, mensajes, texto, titulo=titulo, parent=self)
         if dialogo.exec() and dialogo.accion and dialogo.texto_resultado.strip():
             cur = editor.textCursor()
             if dialogo.accion == "reemplazar":
@@ -1488,16 +1478,6 @@ class VentanaPrincipal(QMainWindow):
                 cur.insertText("\n\n" + dialogo.texto_resultado.strip() + "\n")
                 destino.setTextCursor(cur)
                 self._barra_estado.mostrar_mensaje("Idea insertada en el editor.", 3000)
-
-    def _abrir_asistente(self) -> None:
-        if not self._config.ia_habilitada:
-            self._configurar_ia()
-            if not self._config.ia_habilitada:
-                return
-            self._reconstruir_menu_ia()
-        self._dock_asistente.show()
-        self._dock_asistente.raise_()
-        self._panel_asistente.poner_foco()
 
     # ─── Cierre de la ventana ─────────────────────────────────────────────────
 

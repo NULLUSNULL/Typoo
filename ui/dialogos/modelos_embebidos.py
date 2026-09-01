@@ -173,16 +173,6 @@ class DialogoModelosEmbebidos(QDialog):
         intro.setWordWrap(True)
         layout.addWidget(intro)
 
-        if not modelos.llama_cpp_disponible():
-            aviso = QLabel(
-                "⚠ Para ejecutar estos modelos falta la dependencia "
-                "«llama-cpp-python». Puedes descargar el modelo ahora e instalarla "
-                "después con:  pip install llama-cpp-python"
-            )
-            aviso.setWordWrap(True)
-            aviso.setStyleSheet("color: #FF9500;")
-            layout.addWidget(aviso)
-
         self._tarjetas = []
         for info in CATALOGO:
             tarjeta = _TarjetaModelo(info, self)

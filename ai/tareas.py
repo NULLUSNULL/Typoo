@@ -282,3 +282,24 @@ def mensajes_desarrollar_camino(contexto: str, titulo: str, descripcion: str,
         {"role": "system", "content": _SISTEMA_IDEAS},
         {"role": "user", "content": f"{peticion}\n\nCONTEXTO DE LA NOVELA:\n{contexto}"},
     ]
+
+
+# ─── Revisión y corrección (ortotipográfica + gramatical) ────────────────────
+
+_SISTEMA_CORRECTOR = (
+    "Eres un corrector profesional de español. Corriges ortografía, tildes, "
+    "puntuación y ortotipografía (comillas angulares «», rayas de diálogo —, "
+    "guiones, espacios, mayúsculas y minúsculas) y gramática (concordancia, "
+    "tiempos verbales, preposiciones, queísmo/dequeísmo). NO cambias el estilo, "
+    "el vocabulario ni el contenido, ni reescribes: solo corriges errores y "
+    "conservas la voz del autor y el formato. Respondes ÚNICAMENTE con el texto "
+    "corregido, sin comentarios ni comillas de encuadre."
+)
+
+
+def mensajes_correccion(texto: str) -> list[Mensaje]:
+    """Revisión y corrección ortotipográfica y gramatical de la selección."""
+    return [
+        {"role": "system", "content": _SISTEMA_CORRECTOR},
+        {"role": "user", "content": f"Corrige el siguiente texto:\n\n{texto}"},
+    ]

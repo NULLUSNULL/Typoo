@@ -1,16 +1,16 @@
-# ui/dialogos/configurar_ia.py
-# Diálogo de configuración del asistente de IA (opcional, opt-in).
+# ui/dialogos/config_ia_widget.py
+# Widget de configuración del asistente de IA, reutilizable dentro de las
+# Preferencias (pestaña «IA»).
 
 from __future__ import annotations
 
+import sys
 from typing import Optional
 
 from PySide6.QtCore import Qt
 from PySide6.QtWidgets import (
     QCheckBox,
     QComboBox,
-    QDialog,
-    QDialogButtonBox,
     QFormLayout,
     QHBoxLayout,
     QLabel,
@@ -25,22 +25,21 @@ from ai.proveedores import PROVEEDORES, ProveedorIA, info_proveedor
 from ai.servicio import TrabajadorPrueba
 
 
-class DialogoConfigurarIA(QDialog):
-    """Permite habilitar la IA y elegir proveedor, modelo y credenciales."""
+class WidgetConfigIA(QWidget):
+    """Formulario de configuración de IA. Usa cargar()/guardar()."""
 
     def __init__(self, parent: Optional[QWidget] = None) -> None:
         super().__init__(parent)
         self._config = Configuracion()
         self._prueba: Optional[TrabajadorPrueba] = None
-        self.setWindowTitle("Configurar asistente de IA")
-        self.setMinimumWidth(520)
+        self._id_embebido = ""
         self._construir_ui()
-        self._cargar_valores()
+        self.cargar()
 
     # ─── Construcción ─────────────────────────────────────────────────────────
-
     def _construir_ui(self) -> None:
         layout = QVBoxLayout(self)
+        layout.setContentsMargins(0, 0, 0, 0)
         layout.setSpacing(12)
 
         self._chk_habilitar = QCheckBox("Habilitar el asistente de IA")
@@ -48,9 +47,9 @@ class DialogoConfigurarIA(QDialog):
         layout.addWidget(self._chk_habilitar)
 
         aviso = QLabel(
-            "La IA es opcional. Con proveedores en la nube, el texto que envíes "
-            "saldrá de tu equipo hacia un tercero. Los modos locales (Ollama, "
-            "LM Studio) funcionan sin conexión."
+            "Opcional. Con proveedores en la nube, el texto que envíes saldrá de "
+            "tu equipo hacia un tercero. Los modos locales (Ollama, LM Studio) y "
+            "el embebido funcionan sin conexión."
         )
         aviso.setWordWrap(True)
         aviso.setStyleSheet("color: #8A8F98;")
@@ -61,9 +60,7 @@ class DialogoConfigurarIA(QDialog):
         form.setLabelAlignment(Qt.AlignmentFlag.AlignRight)
 
         self._combo_prov = QComboBox()
-        import sys
         for info in PROVEEDORES.values():
-            # El proveedor de Apple solo tiene sentido en macOS.
             if info.id == "apple" and sys.platform != "darwin":
                 continue
             self._combo_prov.addItem(info.etiqueta, info.id)
@@ -85,8 +82,6 @@ class DialogoConfigurarIA(QDialog):
         self._lbl_clave = QLabel("API key:")
         form.addRow(self._lbl_clave, self._edit_clave)
 
-        # Fila específica del modo embebido: modelo elegido + gestor de descargas.
-        self._id_embebido = ""
         self._fila_embebido = QWidget()
         hl = QHBoxLayout(self._fila_embebido)
         hl.setContentsMargins(0, 0, 0, 0)
@@ -105,36 +100,25 @@ class DialogoConfigurarIA(QDialog):
         self._lbl_ayuda.setStyleSheet("color: #8A8F98;")
         layout.addWidget(self._lbl_ayuda)
 
-        # Probar conexión
-        fila_prueba = QWidget()
-        fila_layout = QVBoxLayout(fila_prueba)
-        fila_layout.setContentsMargins(0, 0, 0, 0)
+        fila = QHBoxLayout()
         self._btn_probar = QPushButton("Probar conexión")
         self._btn_probar.clicked.connect(self._probar_conexion)
-        fila_layout.addWidget(self._btn_probar)
+        fila.addWidget(self._btn_probar)
         self._lbl_estado = QLabel("")
         self._lbl_estado.setWordWrap(True)
-        fila_layout.addWidget(self._lbl_estado)
-        layout.addWidget(fila_prueba)
+        fila.addWidget(self._lbl_estado, 1)
+        layout.addLayout(fila)
+        layout.addStretch(1)
 
-        botones = QDialogButtonBox(
-            QDialogButtonBox.StandardButton.Ok | QDialogButtonBox.StandardButton.Cancel
-        )
-        botones.accepted.connect(self._guardar_y_aceptar)
-        botones.rejected.connect(self.reject)
-        layout.addWidget(botones)
-
-    # ─── Carga y estado ────────────────────────────────────────────────────────
-
-    def _cargar_valores(self) -> None:
+    # ─── Carga / estado ────────────────────────────────────────────────────────
+    def cargar(self) -> None:
         self._chk_habilitar.setChecked(self._config.ia_habilitada)
         if self._config.ia_proveedor == "embebido":
             self._id_embebido = self._config.ia_modelo
         idx = self._combo_prov.findData(self._config.ia_proveedor)
         if idx >= 0:
             self._combo_prov.setCurrentIndex(idx)
-        self._al_cambiar_proveedor()  # rellena url/modelo/clave según proveedor
-        # Sobrescribir con lo guardado si el proveedor coincide con el activo
+        self._al_cambiar_proveedor()
         if self._config.ia_proveedor != "embebido" and self._config.ia_modelo:
             self._edit_modelo.setText(self._config.ia_modelo)
         if self._config.ia_base_url:
@@ -152,7 +136,6 @@ class DialogoConfigurarIA(QDialog):
         info = info_proveedor(self._proveedor_actual_id())
         es_embebido = info.modo == "embebido"
         es_apple = info.protocolo == "apple"
-        # Apple no necesita modelo/URL/clave (usa el modelo del sistema).
         campos_estandar = not es_embebido and not es_apple
 
         self._lbl_modelo.setVisible(campos_estandar)
@@ -174,8 +157,7 @@ class DialogoConfigurarIA(QDialog):
         self._lbl_ayuda.setText(info.ayuda)
         self._lbl_estado.setText("")
 
-    # ─── Modo embebido ───────────────────────────────────────────────────────────
-
+    # ─── Embebido ──────────────────────────────────────────────────────────────
     def _actualizar_label_embebido(self) -> None:
         from ai.modelos import modelo_por_id
         info = modelo_por_id(self._id_embebido)
@@ -189,7 +171,6 @@ class DialogoConfigurarIA(QDialog):
         self._actualizar_label_embebido()
 
     # ─── Prueba de conexión ─────────────────────────────────────────────────────
-
     def _proveedor_desde_campos(self) -> ProveedorIA:
         info = info_proveedor(self._proveedor_actual_id())
         if info.modo == "embebido":
@@ -218,8 +199,7 @@ class DialogoConfigurarIA(QDialog):
         self._lbl_estado.setText(("✓ " if ok else "✗ ") + mensaje)
 
     # ─── Guardado ────────────────────────────────────────────────────────────────
-
-    def _guardar_y_aceptar(self) -> None:
+    def guardar(self) -> None:
         info = info_proveedor(self._proveedor_actual_id())
         self._config.ia_habilitada = self._chk_habilitar.isChecked()
         self._config.ia_proveedor = info.id
@@ -235,10 +215,3 @@ class DialogoConfigurarIA(QDialog):
             self._config.ia_base_url = self._edit_url.text().strip()
             if info.requiere_clave:
                 self._config.set_ia_api_key(info.id, self._edit_clave.text().strip())
-        self._config.sincronizar()
-        self.accept()
-
-    def closeEvent(self, evento) -> None:  # type: ignore[override]
-        if self._prueba and self._prueba.isRunning():
-            self._prueba.wait(2000)
-        super().closeEvent(evento)

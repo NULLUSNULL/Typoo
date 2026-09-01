@@ -114,8 +114,7 @@ class PanelAsistente(QWidget):
         if not pregunta:
             return
         if not self._config.ia_habilitada:
-            self._añadir("nota", "El asistente de IA no está habilitado "
-                                 "(IA → Configurar asistente…).")
+            self._añadir("nota", "El asistente de IA no está habilitado (actívalo en Preferencias → IA).")
             return
         if self._trabajador is not None and self._trabajador.isRunning():
             return

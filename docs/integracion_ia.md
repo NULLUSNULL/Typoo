@@ -147,14 +147,16 @@ fichas de personajes/ubicaciones y tramas.
   esquema de escenas, tramas y escena activa.
 
 ### Ubicación en la interfaz (revisión de UX)
-- **Reescribir**: en el **menú contextual del editor** (clic derecho sobre la
-  selección), no en la barra de menús.
+- **Reescribir** y **Corregir (ortografía y gramática)**: en el **menú
+  contextual del editor** (clic derecho sobre la selección).
 - **Dossier** (sinopsis / ficha / coherencia): en el **menú contextual del
   explorador**, contextual al tipo de elemento (escena, personaje, ubicación).
 - **Tormenta de ideas**: en el **menú contextual del editor** (contextual al
   punto donde escribes/te atascas).
-- **Menú IA** (barra superior): solo acciones globales — configurar y abrir el
-  asistente (chat).
+- **Asistente (chat)**: en el menú **Ver → Asistente de IA** (panel plegable).
+- **Configuración de la IA**: en **Preferencias → pestaña «IA»** (no hay menú IA
+  propio). En macOS, Preferencias vive en el menú de la app (Typoo →
+  Preferencias) e incluye General e IA.
 
 ## Dependencias (todas opcionales, por modo)
 
