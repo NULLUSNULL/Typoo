@@ -1,0 +1,1 @@
+Mara Solveig, farera de tercera generación. Volvió a la isla tras diez años en el continente al morir su padre.

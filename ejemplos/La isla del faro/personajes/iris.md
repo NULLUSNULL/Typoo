@@ -1,0 +1,1 @@
+Iris, patrona del único barco que abastece la isla. Cabello rojo, risa fácil, guarda un secreto sobre el naufragio.

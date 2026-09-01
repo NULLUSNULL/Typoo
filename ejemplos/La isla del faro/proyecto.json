@@ -1,0 +1,224 @@
+{
+  "id": "c55bc787-b67d-4ffc-89b4-027a63d38698",
+  "nombre": "La isla del faro",
+  "version": "1.0.0",
+  "descripcion": "Proyecto de ejemplo para probar Typoo y su asistente de IA.",
+  "autor": "Autoría de ejemplo",
+  "tramas": [
+    {
+      "id": "27549c2f-6f4b-4310-90dd-c1a36c792257",
+      "nombre": "El naufragio",
+      "color": "#FF3B30"
+    }
+  ],
+  "arbol": {
+    "id": "c55bc787-b67d-4ffc-89b4-027a63d38698",
+    "nombre": "La isla del faro",
+    "tipo": "proyecto",
+    "ruta_relativa": "",
+    "padre_id": null,
+    "orden": 0,
+    "expandido": true,
+    "metadatos": {},
+    "hijos": [
+      {
+        "id": "9fe2df8a-d458-451b-bc8d-8708090cfed8",
+        "nombre": "Manuscrito",
+        "tipo": "carpeta",
+        "ruta_relativa": "manuscrito",
+        "padre_id": "c55bc787-b67d-4ffc-89b4-027a63d38698",
+        "orden": 0,
+        "expandido": true,
+        "metadatos": {
+          "rol": "manuscrito"
+        },
+        "hijos": [
+          {
+            "id": "d2834829-3963-469a-8fa3-0d168ad97e5c",
+            "nombre": "Capítulo 1 · Regreso",
+            "tipo": "capitulo",
+            "ruta_relativa": "",
+            "padre_id": "9fe2df8a-d458-451b-bc8d-8708090cfed8",
+            "orden": 0,
+            "expandido": true,
+            "metadatos": {
+              "estado": "En revisión"
+            },
+            "hijos": [
+              {
+                "id": "85c1a0b9-d3af-4794-8de5-c70f87fff159",
+                "nombre": "1.1 · La luz al anochecer",
+                "tipo": "escena",
+                "ruta_relativa": "manuscrito/1_1_la_luz_al_anochecer.md",
+                "padre_id": "d2834829-3963-469a-8fa3-0d168ad97e5c",
+                "orden": 0,
+                "expandido": true,
+                "metadatos": {
+                  "estado": "Terminada",
+                  "pov": "c92ac524-52b4-44b7-b4cd-93c543ef4aa7",
+                  "personajes": [
+                    "c92ac524-52b4-44b7-b4cd-93c543ef4aa7"
+                  ],
+                  "ubicacion": "529e0363-1ed2-4fc6-b24e-637c7358cfdf",
+                  "momento": "Otoño, atardecer",
+                  "tramas": [
+                    "27549c2f-6f4b-4310-90dd-c1a36c792257"
+                  ]
+                },
+                "hijos": []
+              },
+              {
+                "id": "f851893d-b3c9-43c6-8681-80b5994f1713",
+                "nombre": "1.2 · El barco de Iris",
+                "tipo": "escena",
+                "ruta_relativa": "manuscrito/1_2_el_barco_de_iris.md",
+                "padre_id": "d2834829-3963-469a-8fa3-0d168ad97e5c",
+                "orden": 1,
+                "expandido": true,
+                "metadatos": {
+                  "estado": "Borrador",
+                  "pov": "c92ac524-52b4-44b7-b4cd-93c543ef4aa7",
+                  "personajes": [
+                    "c92ac524-52b4-44b7-b4cd-93c543ef4aa7",
+                    "8784ae9c-fe27-4f5e-af01-ac77689d9aa6"
+                  ],
+                  "ubicacion": "c3461c62-2d29-4f63-b15c-7bec4a64ea2a",
+                  "momento": "Al día siguiente, amanecer",
+                  "tramas": [
+                    "27549c2f-6f4b-4310-90dd-c1a36c792257"
+                  ]
+                },
+                "hijos": []
+              }
+            ]
+          },
+          {
+            "id": "6c081b45-8b48-415d-a588-15f1d3bc5f53",
+            "nombre": "Capítulo 2 · La verdad",
+            "tipo": "capitulo",
+            "ruta_relativa": "",
+            "padre_id": "9fe2df8a-d458-451b-bc8d-8708090cfed8",
+            "orden": 1,
+            "expandido": true,
+            "metadatos": {
+              "estado": "Esbozado"
+            },
+            "hijos": [
+              {
+                "id": "387705ed-cbc9-4632-a8d3-0273d90f5bd6",
+                "nombre": "2.1 · Escalones",
+                "tipo": "escena",
+                "ruta_relativa": "manuscrito/2_1_escalones.md",
+                "padre_id": "6c081b45-8b48-415d-a588-15f1d3bc5f53",
+                "orden": 0,
+                "expandido": true,
+                "metadatos": {
+                  "estado": "Borrador",
+                  "pov": "c92ac524-52b4-44b7-b4cd-93c543ef4aa7",
+                  "personajes": [
+                    "c92ac524-52b4-44b7-b4cd-93c543ef4aa7"
+                  ]
+                },
+                "hijos": []
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "id": "d8ac1f92-1802-4c1f-a5d6-680cb7c7c6ff",
+        "nombre": "Personajes",
+        "tipo": "carpeta",
+        "ruta_relativa": "personajes",
+        "padre_id": "c55bc787-b67d-4ffc-89b4-027a63d38698",
+        "orden": 1,
+        "expandido": true,
+        "metadatos": {
+          "rol": "personajes"
+        },
+        "hijos": [
+          {
+            "id": "c92ac524-52b4-44b7-b4cd-93c543ef4aa7",
+            "nombre": "Mara",
+            "tipo": "personaje",
+            "ruta_relativa": "personajes/mara.md",
+            "padre_id": "d8ac1f92-1802-4c1f-a5d6-680cb7c7c6ff",
+            "orden": 0,
+            "expandido": true,
+            "metadatos": {
+              "rol": "Protagonista",
+              "edad": "32",
+              "personalidad": "Tenaz y reservada; le cuesta pedir ayuda."
+            },
+            "hijos": []
+          },
+          {
+            "id": "8784ae9c-fe27-4f5e-af01-ac77689d9aa6",
+            "nombre": "Iris",
+            "tipo": "personaje",
+            "ruta_relativa": "personajes/iris.md",
+            "padre_id": "d8ac1f92-1802-4c1f-a5d6-680cb7c7c6ff",
+            "orden": 1,
+            "expandido": true,
+            "metadatos": {
+              "rol": "Secundario"
+            },
+            "hijos": []
+          }
+        ]
+      },
+      {
+        "id": "a67e419d-6924-49e1-95ce-0bbfb3da3004",
+        "nombre": "Ubicaciones",
+        "tipo": "carpeta",
+        "ruta_relativa": "ubicaciones",
+        "padre_id": "c55bc787-b67d-4ffc-89b4-027a63d38698",
+        "orden": 2,
+        "expandido": true,
+        "metadatos": {
+          "rol": "ubicaciones"
+        },
+        "hijos": [
+          {
+            "id": "529e0363-1ed2-4fc6-b24e-637c7358cfdf",
+            "nombre": "El faro",
+            "tipo": "ubicacion",
+            "ruta_relativa": "ubicaciones/el_faro.md",
+            "padre_id": "a67e419d-6924-49e1-95ce-0bbfb3da3004",
+            "orden": 0,
+            "expandido": true,
+            "metadatos": {
+              "tipo_lugar": "Edificio",
+              "atmosfera": "Aislado, salino, ciento veinte escalones."
+            },
+            "hijos": []
+          },
+          {
+            "id": "c3461c62-2d29-4f63-b15c-7bec4a64ea2a",
+            "nombre": "El puerto",
+            "tipo": "ubicacion",
+            "ruta_relativa": "ubicaciones/el_puerto.md",
+            "padre_id": "a67e419d-6924-49e1-95ce-0bbfb3da3004",
+            "orden": 1,
+            "expandido": true,
+            "metadatos": {},
+            "hijos": []
+          }
+        ]
+      },
+      {
+        "id": "d30d432d-d9f9-4b2c-b815-f142762cd3a1",
+        "nombre": "Notas e investigación",
+        "tipo": "carpeta",
+        "ruta_relativa": "notas",
+        "padre_id": "c55bc787-b67d-4ffc-89b4-027a63d38698",
+        "orden": 3,
+        "expandido": true,
+        "metadatos": {
+          "rol": "notas"
+        },
+        "hijos": []
+      }
+    ]
+  }
+}

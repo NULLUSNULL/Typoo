@@ -1,0 +1,1 @@
+El faro de Skellig, sobre el acantilado norte. Su luz gira cada quince segundos.
