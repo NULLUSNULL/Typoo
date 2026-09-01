@@ -1,0 +1,136 @@
+# Integración con IA — Diseño
+
+> Documento de diseño para la rama `claude/integracion-ia`. Recoge la
+> arquitectura propuesta, el catálogo de proveedores/modelos y las funciones de
+> valor. **Nada de esto está implementado todavía**: es el plan a revisar antes
+> de construir.
+
+## Principios
+
+1. **Totalmente opcional y desactivada por defecto.** Sin habilitarla, la
+   interfaz no muestra ninguna opción de IA (solo la entrada para configurarla).
+2. **Privacidad primero.** El manuscrito es material sensible. El usuario elige
+   explícitamente si su texto sale del equipo. Las opciones **local** y
+   **embebida** funcionan 100 % sin conexión; las de **pago/nube** avisan de que
+   el texto se envía a un tercero.
+3. **Proveedor intercambiable.** Una única capa de abstracción; añadir un
+   proveedor nuevo no toca la interfaz ni las funciones.
+4. **Degradación elegante.** Si falta una dependencia opcional o el servicio no
+   responde, la app sigue funcionando igual; la IA nunca bloquea la escritura.
+
+## Modos de proveedor
+
+| Modo | Ejemplos | Conexión | Coste | Notas |
+|------|----------|----------|-------|-------|
+| **Nube (pago)** | OpenAI, Anthropic, NVIDIA NIM, Groq, Mistral… | Sí | API key del usuario | El texto sale del equipo. Muchos exponen API compatible con OpenAI. |
+| **Local (servidor)** | Ollama, LM Studio | Sí (localhost) | Gratis | El usuario ya tiene el motor corriendo; hablamos por HTTP local. |
+| **Embebida (descargable)** | GGUF vía `llama.cpp` | No | Gratis | La app descarga y ejecuta el modelo. Sin dependencias externas para el usuario. |
+
+### Capa de abstracción
+
+```
+ai/
+├── proveedores/
+│   ├── base.py          # ProveedorIA: generar(prompt, sistema, *, stream) -> texto
+│   ├── openai_compat.py # OpenAI, NVIDIA, Groq, Mistral, LM Studio (mismo protocolo)
+│   ├── anthropic.py     # API de Anthropic (Messages)
+│   ├── ollama.py        # API local de Ollama
+│   └── embebido.py      # llama-cpp-python sobre un .gguf local
+├── modelos.py           # catálogo de modelos embebidos + descarga/verificación
+├── contexto.py          # arma el contexto del proyecto (escena, dossier, tramas)
+├── tareas.py            # prompts de alto nivel (continuar, reescribir, sinopsis…)
+└── servicio_ia.py       # fachada: elige proveedor según config y ejecuta tareas
+```
+
+- Casi todos los proveedores de nube y LM Studio hablan el **protocolo OpenAI**
+  (`/v1/chat/completions`), así que un solo `openai_compat.py` cubre OpenAI,
+  NVIDIA, Groq, Mistral y LM Studio cambiando solo `base_url` y `api_key`.
+  Anthropic y Ollama llevan su propio adaptador.
+- Todo se ejecuta en un **hilo/worker** con salida en *streaming* para no
+  congelar la interfaz; se puede cancelar.
+- Las **API keys** se guardan con el almacén de credenciales del sistema
+  (`keyring`) cuando esté disponible; nunca en `proyecto.json` ni en el repo.
+
+## Modelos embebidos (descargables)
+
+Tres niveles según el equipo, en formato **GGUF** (cuantizados, vía `llama.cpp`).
+Prioridad: buena prosa en **español** e instrucción fiable. Son sugerencias
+iniciales, ajustables (el catálogo vive en `ai/modelos.py`):
+
+| Nivel | Equipo objetivo | Tamaño aprox. | Candidatos |
+|-------|-----------------|---------------|------------|
+| **Ligero** | Portátil, 8 GB RAM, sin GPU | ~2–3 GB (Q4) | Llama 3.2 3B Instruct · Qwen2.5 3B Instruct |
+| **Medio** | 16 GB RAM o GPU modesta | ~5–6 GB (Q4/Q5) | Mistral 7B Instruct · Qwen2.5 7B · Llama 3.1 8B |
+| **Grande** | 32 GB+ / GPU dedicada | ~15–20 GB | Mistral Small (24B) · Qwen2.5 14B/32B · Gemma 2 27B |
+
+Descarga desde Hugging Face con barra de progreso, verificación de hash y
+posibilidad de borrar el modelo para liberar espacio. La dependencia
+`llama-cpp-python` es **opcional**: solo se instala si el usuario elige el modo
+embebido (asistente de instalación desde la propia app).
+
+## Experiencia de usuario (opt-in)
+
+1. **Menú `IA` → «Configurar asistente…»** (única entrada visible al principio).
+2. Asistente de configuración: elegir modo → (nube: API key + modelo; local:
+   URL + modelo detectado; embebido: elegir nivel y descargar) → **Probar
+   conexión**.
+3. Al quedar habilitada y verificada, aparecen:
+   - Nuevas acciones en el **menú `IA`** y en el **menú contextual del editor**
+     (sobre la selección).
+   - Un **panel lateral «Asistente»** (dock) para chat con contexto y para
+     revisar/insertar sugerencias.
+   - Indicador de estado (proveedor/modelo activo) en la barra de estado.
+4. Un interruptor global para deshabilitarla vuelve a ocultarlo todo.
+
+## Funciones de valor propuestas
+
+Aprovechan lo que Typoo ya modela: manuscrito por escenas, POV, sinopsis,
+fichas de personajes/ubicaciones y tramas.
+
+### Escritura y edición (sobre el editor)
+- **Continuar la escena** a partir del texto y su contexto (POV, personajes
+  presentes, sinopsis, trama).
+- **Reescribir la selección** con intención: pulir, condensar, expandir,
+  cambiar de registro/tono, «muéstralo, no lo cuentes».
+- **Corrección de estilo literario**: repeticiones, muletillas, adverbios en
+  «-mente», voz pasiva, frases largas; con sugerencias aplicables.
+- **Diálogo**: naturalizar, diferenciar la voz de cada personaje.
+
+### Dossier y coherencia
+- **Sinopsis automática** de escena/capítulo → rellena el campo `Resumen`.
+- **Fichas asistidas**: proponer/enriquecer metadatos de personaje o ubicación a
+  partir del manuscrito (apariencia, motivación, arco).
+- **Guardián de coherencia**: contrastar lo que hace/dice un personaje con su
+  ficha y señalar contradicciones (edad, rasgos, cronología con `Momento`).
+
+### Estructura y tramas
+- **Lluvia de ideas de trama**: siguientes escenas, huecos argumentales, giros,
+  a partir del `story grid` y las sinopsis.
+- **Análisis de ritmo/tensión** por capítulo.
+
+### Consulta (panel «Asistente», con contexto del proyecto)
+- **Chat sobre el manuscrito**: «¿dónde aparece por primera vez el faro?»,
+  «resume el arco de Mara», usando recuperación sobre escenas y dossier.
+- **Nombres**: sugerir nombres de personaje/lugar según género y época.
+
+## Plan por fases
+
+- **Fase 0 — Cimientos (sin funciones aún):** capa de proveedores + config
+  opt-in + asistente de configuración + «Probar conexión». Empezar por el modo
+  **local (Ollama/LM Studio)** y **nube (OpenAI-compat + Anthropic)** porque no
+  requieren descargas pesadas.
+- **Fase 1 — Primeras funciones:** *Reescribir selección* y *Continuar escena*
+  (menú contextual del editor) + panel «Asistente» básico en streaming.
+- **Fase 2 — Dossier:** sinopsis automática, fichas asistidas, guardián de
+  coherencia.
+- **Fase 3 — Embebido:** `llama-cpp-python`, catálogo y descargador de modelos.
+- **Fase 4 — Estructura/chat con contexto (RAG)** sobre el proyecto.
+
+## Dependencias (todas opcionales, por modo)
+
+- Nube/local: solo `requests`/`httpx` (o `openai`/`anthropic` si se prefiere).
+- Embebido: `llama-cpp-python` + `huggingface_hub` para la descarga.
+- Credenciales: `keyring` (con degradación a fichero cifrado si no está).
+
+Nada de esto se añade a `requirements.txt` como obligatorio; se instala bajo
+demanda según el modo elegido.
