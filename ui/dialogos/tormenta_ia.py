@@ -175,9 +175,12 @@ class DialogoTormenta(QDialog):
 
     def _al_terminar_desarrollo(self, texto: str) -> None:
         self.texto_resultado = (texto or "".join(self._buffer)).strip()
-        self._estado.setText("Puedes insertarlo en el editor para seguir escribiendo.")
         self._btn_insertar.show()
         self._btn_insertar.setEnabled(bool(self.texto_resultado))
+        if self.texto_resultado:
+            self._estado.setText("Puedes insertarlo en el editor para seguir escribiendo.")
+        else:
+            self._estado.setText("El modelo no devolvió texto. Prueba «← Ver opciones».")
 
     def _volver_a_opciones(self) -> None:
         if self._trabajador and self._trabajador.isRunning():
@@ -199,11 +202,12 @@ class DialogoTormenta(QDialog):
 
     # ─── Motor común ────────────────────────────────────────────────────────────
     def _lanzar(self, mensajes, al_terminar) -> None:
+        self._btn_detener.setVisible(True)
         self._btn_detener.setEnabled(True)
         self._trabajador = TrabajadorIA(self._proveedor, mensajes, parent=self)
         self._trabajador.token.connect(self._al_token)
         self._trabajador.terminado.connect(al_terminar)
-        self._trabajador.terminado.connect(lambda *_: self._btn_detener.setEnabled(False))
+        self._trabajador.terminado.connect(lambda *_: self._btn_detener.setVisible(False))
         self._trabajador.error.connect(self._al_error)
         self._trabajador.start()
 
@@ -216,12 +220,12 @@ class DialogoTormenta(QDialog):
     def _al_error(self, mensaje: str) -> None:
         self._estado.setStyleSheet("color: #FF3B30;")
         self._estado.setText(f"Error: {mensaje}")
-        self._btn_detener.setEnabled(False)
+        self._btn_detener.setVisible(False)
 
     def _detener(self) -> None:
         if self._trabajador and self._trabajador.isRunning():
             self._trabajador.cancelar()
-        self._btn_detener.setEnabled(False)
+        self._btn_detener.setVisible(False)
 
     def closeEvent(self, evento) -> None:  # type: ignore[override]
         if self._trabajador and self._trabajador.isRunning():
