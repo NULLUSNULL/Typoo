@@ -70,3 +70,34 @@ class TrabajadorPrueba(QThread):
         except Exception as e:  # pragma: no cover
             ok, msg = False, f"Error inesperado: {e}"
         self.resultado.emit(ok, msg)
+
+
+class TrabajadorDescarga(QThread):
+    """Descarga un modelo embebido en segundo plano, informando del progreso."""
+
+    progreso = Signal(int, int)   # (bytes_leidos, bytes_totales)
+    terminado = Signal()
+    cancelado = Signal()
+    error = Signal(str)
+
+    def __init__(self, info, parent=None) -> None:
+        super().__init__(parent)
+        self._info = info
+        self._cancelar = False
+
+    def cancelar(self) -> None:
+        self._cancelar = True
+
+    def run(self) -> None:
+        from ai import modelos
+        try:
+            modelos.descargar(
+                self._info,
+                on_progress=lambda leido, total: self.progreso.emit(leido, total),
+                cancelar=lambda: self._cancelar,
+            )
+            self.terminado.emit()
+        except modelos.DescargaCancelada:
+            self.cancelado.emit()
+        except Exception as e:  # noqa: BLE001 - mensaje legible para el usuario
+            self.error.emit(str(e))

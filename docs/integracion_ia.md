@@ -123,8 +123,10 @@ fichas de personajes/ubicaciones y tramas.
 - **Fase 2 — Dossier ✅ (hecho):** sinopsis automática (rellena `Resumen`),
   fichas asistidas (rellena campos vacíos de personaje/ubicación) y guardián de
   coherencia (informe que contrasta la ficha con las escenas del personaje).
-- **Fase 3 — Embebido (pendiente):** `llama-cpp-python`, catálogo y descargador
-  de modelos GGUF.
+- **Fase 3 — Embebido ✅ (hecho):** catálogo de 3 modelos GGUF (ligero/medio/
+  grande), descarga con progreso/cancelación en `ai/modelos.py`, gestor visual
+  (`Modelos embebidos`) y proveedor `embebido` que ejecuta con `llama-cpp-python`
+  (dependencia opcional, carga perezosa y cacheada).
 - **Fase 4 — Estructura/chat con contexto RAG (pendiente)** sobre el proyecto.
 
 ## Dependencias (todas opcionales, por modo)

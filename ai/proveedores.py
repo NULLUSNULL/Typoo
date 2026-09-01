@@ -64,7 +64,25 @@ PROVEEDORES: dict[str, InfoProveedor] = {
         "lmstudio", "LM Studio (local)", "local", "openai",
         "http://localhost:1234/v1", False, "",
         "Inicia el servidor local de LM Studio y carga un modelo."),
+    "embebido": InfoProveedor(
+        "embebido", "Embebido (descargable)", "embebido", "embebido",
+        "", False, "",
+        "Modelos que se ejecutan en tu equipo, sin conexión. "
+        "Requiere la dependencia llama-cpp-python."),
 }
+
+
+# Caché de modelos embebidos ya cargados (evita recargar el .gguf en cada tarea).
+_LLM_CACHE: dict[str, object] = {}
+
+
+def _cargar_llm(ruta: str, n_ctx: int):
+    llm = _LLM_CACHE.get(ruta)
+    if llm is None:
+        import llama_cpp
+        llm = llama_cpp.Llama(model_path=ruta, n_ctx=n_ctx, verbose=False)
+        _LLM_CACHE[ruta] = llm
+    return llm
 
 
 def info_proveedor(id_proveedor: str) -> InfoProveedor:
@@ -170,8 +188,43 @@ class ProveedorIA:
             yield from self._stream_anthropic(mensajes, temperatura, max_tokens, cancelar)
         elif self.protocolo == "ollama":
             yield from self._stream_ollama(mensajes, temperatura, cancelar)
+        elif self.protocolo == "embebido":
+            yield from self._stream_embebido(mensajes, temperatura, max_tokens, cancelar)
         else:
             raise ErrorIA(f"Protocolo no soportado: {self.protocolo}")
+
+    def _stream_embebido(self, mensajes, temperatura, max_tokens, cancelar):
+        from ai import modelos
+        info = modelos.modelo_por_id(self.modelo)
+        if info is None:
+            raise ErrorIA("No hay ningún modelo embebido seleccionado.")
+        if not modelos.llama_cpp_disponible():
+            raise ErrorIA(
+                "Falta la dependencia «llama-cpp-python». Instálala para usar "
+                "modelos embebidos (pip install llama-cpp-python).")
+        if not modelos.esta_descargado(info):
+            raise ErrorIA(f"El modelo «{info.etiqueta}» aún no está descargado.")
+        try:
+            llm = _cargar_llm(str(modelos.ruta_modelo(info)), info.n_ctx)
+            stream = llm.create_chat_completion(
+                messages=mensajes,
+                temperature=temperatura,
+                max_tokens=max_tokens,
+                stream=True,
+            )
+        except ErrorIA:
+            raise
+        except Exception as e:
+            raise ErrorIA(f"No se pudo cargar el modelo embebido: {e}") from e
+        for chunk in stream:
+            if cancelar and cancelar():
+                break
+            try:
+                trozo = chunk["choices"][0].get("delta", {}).get("content")
+                if trozo:
+                    yield trozo
+            except (KeyError, IndexError):
+                continue
 
     def _stream_openai(self, mensajes, temperatura, max_tokens, cancelar):
         cab = {}
@@ -263,9 +316,20 @@ class ProveedorIA:
                 return ok, ("Conexión con Ollama correcta." if ok else msg)
             if self.protocolo == "anthropic":
                 # Petición mínima para validar clave y modelo.
-                trozos = list(self.generar_stream(
+                list(self.generar_stream(
                     [{"role": "user", "content": "ping"}], max_tokens=1))
                 return True, "Conexión correcta."
+            if self.protocolo == "embebido":
+                from ai import modelos
+                info = modelos.modelo_por_id(self.modelo)
+                if info is None:
+                    return False, "Selecciona un modelo embebido."
+                if not modelos.llama_cpp_disponible():
+                    return False, ("Falta «llama-cpp-python» (necesaria para "
+                                   "ejecutar modelos embebidos).")
+                if not modelos.esta_descargado(info):
+                    return False, f"El modelo «{info.etiqueta}» no está descargado."
+                return True, "Modelo embebido listo (se cargará al primer uso)."
         except ErrorIA as e:
             return False, str(e)
         except Exception as e:  # pragma: no cover - salvaguarda

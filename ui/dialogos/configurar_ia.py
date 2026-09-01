@@ -12,6 +12,7 @@ from PySide6.QtWidgets import (
     QDialog,
     QDialogButtonBox,
     QFormLayout,
+    QHBoxLayout,
     QLabel,
     QLineEdit,
     QPushButton,
@@ -66,17 +67,32 @@ class DialogoConfigurarIA(QDialog):
         form.addRow("Proveedor:", self._combo_prov)
 
         self._edit_modelo = QLineEdit()
-        form.addRow("Modelo:", self._edit_modelo)
+        self._lbl_modelo = QLabel("Modelo:")
+        form.addRow(self._lbl_modelo, self._edit_modelo)
 
         self._edit_url = QLineEdit()
         self._edit_url.setPlaceholderText("URL base del servicio")
-        form.addRow("URL base:", self._edit_url)
+        self._lbl_url = QLabel("URL base:")
+        form.addRow(self._lbl_url, self._edit_url)
 
         self._edit_clave = QLineEdit()
         self._edit_clave.setEchoMode(QLineEdit.EchoMode.Password)
         self._edit_clave.setPlaceholderText("Se guarda solo en este equipo")
         self._lbl_clave = QLabel("API key:")
         form.addRow(self._lbl_clave, self._edit_clave)
+
+        # Fila específica del modo embebido: modelo elegido + gestor de descargas.
+        self._id_embebido = ""
+        self._fila_embebido = QWidget()
+        hl = QHBoxLayout(self._fila_embebido)
+        hl.setContentsMargins(0, 0, 0, 0)
+        self._lbl_modelo_emb = QLabel("(ninguno)")
+        self._btn_gestionar = QPushButton("Gestionar modelos…")
+        self._btn_gestionar.clicked.connect(self._gestionar_embebidos)
+        hl.addWidget(self._lbl_modelo_emb, 1)
+        hl.addWidget(self._btn_gestionar)
+        self._lbl_emb = QLabel("Modelo embebido:")
+        form.addRow(self._lbl_emb, self._fila_embebido)
 
         layout.addWidget(self._form_widget)
 
@@ -108,12 +124,14 @@ class DialogoConfigurarIA(QDialog):
 
     def _cargar_valores(self) -> None:
         self._chk_habilitar.setChecked(self._config.ia_habilitada)
+        if self._config.ia_proveedor == "embebido":
+            self._id_embebido = self._config.ia_modelo
         idx = self._combo_prov.findData(self._config.ia_proveedor)
         if idx >= 0:
             self._combo_prov.setCurrentIndex(idx)
         self._al_cambiar_proveedor()  # rellena url/modelo/clave según proveedor
         # Sobrescribir con lo guardado si el proveedor coincide con el activo
-        if self._config.ia_modelo:
+        if self._config.ia_proveedor != "embebido" and self._config.ia_modelo:
             self._edit_modelo.setText(self._config.ia_modelo)
         if self._config.ia_base_url:
             self._edit_url.setText(self._config.ia_base_url)
@@ -128,18 +146,48 @@ class DialogoConfigurarIA(QDialog):
 
     def _al_cambiar_proveedor(self) -> None:
         info = info_proveedor(self._proveedor_actual_id())
-        self._edit_modelo.setText(info.modelo_defecto)
-        self._edit_url.setText(info.base_url)
-        self._edit_clave.setText(self._config.ia_api_key(info.id))
-        self._lbl_clave.setVisible(info.requiere_clave)
-        self._edit_clave.setVisible(info.requiere_clave)
+        es_embebido = info.modo == "embebido"
+
+        # Campos de nube/local (modelo, URL, clave) frente al modo embebido.
+        self._lbl_modelo.setVisible(not es_embebido)
+        self._edit_modelo.setVisible(not es_embebido)
+        self._lbl_url.setVisible(not es_embebido)
+        self._edit_url.setVisible(not es_embebido)
+        self._lbl_clave.setVisible(not es_embebido and info.requiere_clave)
+        self._edit_clave.setVisible(not es_embebido and info.requiere_clave)
+        self._lbl_emb.setVisible(es_embebido)
+        self._fila_embebido.setVisible(es_embebido)
+
+        if not es_embebido:
+            self._edit_modelo.setText(info.modelo_defecto)
+            self._edit_url.setText(info.base_url)
+            self._edit_clave.setText(self._config.ia_api_key(info.id))
+        else:
+            self._actualizar_label_embebido()
+
         self._lbl_ayuda.setText(info.ayuda)
         self._lbl_estado.setText("")
+
+    # ─── Modo embebido ───────────────────────────────────────────────────────────
+
+    def _actualizar_label_embebido(self) -> None:
+        from ai.modelos import modelo_por_id
+        info = modelo_por_id(self._id_embebido)
+        self._lbl_modelo_emb.setText(info.etiqueta if info else "(ninguno seleccionado)")
+
+    def _gestionar_embebidos(self) -> None:
+        from ui.dialogos.modelos_embebidos import DialogoModelosEmbebidos
+        dlg = DialogoModelosEmbebidos(self._id_embebido, self)
+        if dlg.exec() and dlg.id_seleccionado:
+            self._id_embebido = dlg.id_seleccionado
+        self._actualizar_label_embebido()
 
     # ─── Prueba de conexión ─────────────────────────────────────────────────────
 
     def _proveedor_desde_campos(self) -> ProveedorIA:
         info = info_proveedor(self._proveedor_actual_id())
+        if info.modo == "embebido":
+            return ProveedorIA(info, modelo=self._id_embebido)
         return ProveedorIA(
             info,
             modelo=self._edit_modelo.text().strip(),
@@ -168,10 +216,14 @@ class DialogoConfigurarIA(QDialog):
         self._config.ia_habilitada = self._chk_habilitar.isChecked()
         self._config.ia_proveedor = info.id
         self._config.ia_modo = info.modo
-        self._config.ia_modelo = self._edit_modelo.text().strip()
-        self._config.ia_base_url = self._edit_url.text().strip()
-        if info.requiere_clave:
-            self._config.set_ia_api_key(info.id, self._edit_clave.text().strip())
+        if info.modo == "embebido":
+            self._config.ia_modelo = self._id_embebido
+            self._config.ia_base_url = ""
+        else:
+            self._config.ia_modelo = self._edit_modelo.text().strip()
+            self._config.ia_base_url = self._edit_url.text().strip()
+            if info.requiere_clave:
+                self._config.set_ia_api_key(info.id, self._edit_clave.text().strip())
         self._config.sincronizar()
         self.accept()
 
