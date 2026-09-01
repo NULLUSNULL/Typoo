@@ -368,10 +368,6 @@ class VentanaPrincipal(QMainWindow):
 
         if self._config.ia_habilitada:
             menu.addSeparator()
-            ac_ideas = QAction("Tormenta de ideas…", self)
-            ac_ideas.triggered.connect(self._ia_tormenta)
-            menu.addAction(ac_ideas)
-
             ac_chat = QAction("Asistente (chat con contexto)…", self)
             ac_chat.triggered.connect(self._abrir_asistente)
             menu.addAction(ac_chat)
@@ -381,6 +377,7 @@ class VentanaPrincipal(QMainWindow):
             ac_ayuda.setEnabled(False)
             menu.addAction(ac_ayuda)
             for txt in ("• Reescribir: clic derecho sobre el texto seleccionado",
+                        "• Tormenta de ideas: clic derecho en el editor",
                         "• Dossier: clic derecho en una escena/personaje/ubicación"):
                 a = QAction(txt, self)
                 a.setEnabled(False)
@@ -431,6 +428,7 @@ class VentanaPrincipal(QMainWindow):
             )
             # Reescritura con IA desde el menú contextual del editor.
             panel.ia_reescribir_solicitada.connect(self._reescribir_seleccion)
+            panel.ia_tormenta_solicitada.connect(self._ia_tormenta)
 
         # Panel de detalles: guardar los metadatos editados (con retardo)
         self._timer_metadatos = QTimer(self)
@@ -1461,8 +1459,7 @@ class VentanaPrincipal(QMainWindow):
             self._mostrar_advertencia("Sin proyecto", "Abre un proyecto primero.")
             return
         from ai.contexto import truncar
-        from ai.tareas import mensajes_tormenta
-        from ui.dialogos.resultado_ia import DialogoResultadoIA
+        from ui.dialogos.tormenta_ia import DialogoTormenta
 
         proyecto = self._gestor.proyecto_activo
         lineas = []
@@ -1474,21 +1471,23 @@ class VentanaPrincipal(QMainWindow):
 
         partes = [f"Tramas: {tramas}", f"Escenas hasta ahora:\n{esquema}"]
         foco = ""
-        item = self._item_editor_activo()[1]
+        editor, item = self._item_editor_activo()
         if item is not None and item.tipo == TipoElemento.ESCENA:
             texto = self._texto_de_item(item).strip()
             if texto:
                 partes.append(f"Escena actual «{item.nombre}»:\n{truncar(texto, 2000)}")
                 foco = f"cómo continuar tras «{item.nombre}»"
         contexto = truncar("\n\n".join(partes), 8000)
-        mensajes = mensajes_tormenta(contexto, foco)
-        dialogo = DialogoResultadoIA(
-            self._proveedor_ia(), mensajes, esquema,
-            titulo="Tormenta de ideas",
-            acciones=[],  # informe de solo lectura
-            etiqueta_original="Tu historia", etiqueta_sugerencia="Ideas para continuar",
-            parent=self)
-        dialogo.exec()
+
+        dialogo = DialogoTormenta(self._proveedor_ia(), contexto, foco, parent=self)
+        if dialogo.exec() and dialogo.accion == "insertar" and dialogo.texto_resultado.strip():
+            destino = editor or self._editor_activo()
+            if destino is not None:
+                cur = destino.textCursor()
+                cur.movePosition(QTextCursor.MoveOperation.EndOfBlock)
+                cur.insertText("\n\n" + dialogo.texto_resultado.strip() + "\n")
+                destino.setTextCursor(cur)
+                self._barra_estado.mostrar_mensaje("Idea insertada en el editor.", 3000)
 
     def _abrir_asistente(self) -> None:
         if not self._config.ia_habilitada:

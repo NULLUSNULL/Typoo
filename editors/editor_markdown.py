@@ -52,6 +52,7 @@ class EditorMarkdown(QPlainTextEdit):
     foco_recibido = Signal()                # Emite cuando el editor gana el foco
     tamano_zoom_cambiado = Signal(int)      # Emite el nuevo tamaño tras zoom (Ctrl+rueda)
     ia_reescribir = Signal(str)             # Emite el id de intención de reescritura (IA)
+    ia_tormenta = Signal()                  # Solicita la tormenta de ideas (IA)
 
     def __init__(self, parent: Optional[QWidget] = None) -> None:
         super().__init__(parent)
@@ -469,14 +470,18 @@ class EditorMarkdown(QPlainTextEdit):
     def contextMenuEvent(self, evento) -> None:  # type: ignore[override]
         menu = self.createStandardContextMenu()
         try:
-            if self._config.ia_habilitada and self.textCursor().hasSelection():
-                from ai.tareas import INTENCIONES_REESCRITURA
+            if self._config.ia_habilitada:
                 menu.addSeparator()
-                submenu = menu.addMenu("Reescribir con IA")
-                for intencion in INTENCIONES_REESCRITURA:
-                    accion = submenu.addAction(intencion.etiqueta)
-                    accion.triggered.connect(
-                        lambda checked=False, i=intencion.id: self.ia_reescribir.emit(i))
+                if self.textCursor().hasSelection():
+                    from ai.tareas import INTENCIONES_REESCRITURA
+                    submenu = menu.addMenu("Reescribir con IA")
+                    for intencion in INTENCIONES_REESCRITURA:
+                        accion = submenu.addAction(intencion.etiqueta)
+                        accion.triggered.connect(
+                            lambda checked=False, i=intencion.id: self.ia_reescribir.emit(i))
+                # No requiere selección: ayuda a continuar desde el punto actual.
+                accion_ideas = menu.addAction("Tormenta de ideas: ¿cómo continuar?…")
+                accion_ideas.triggered.connect(lambda checked=False: self.ia_tormenta.emit())
         except Exception:
             pass
         menu.exec(evento.globalPos())

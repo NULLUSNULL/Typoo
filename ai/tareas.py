@@ -219,3 +219,66 @@ def mensajes_tormenta(contexto: str, foco: str = "") -> list[Mensaje]:
         {"role": "system", "content": _SISTEMA_IDEAS},
         {"role": "user", "content": f"{peticion}\n\nCONTEXTO DE LA NOVELA:\n{contexto}"},
     ]
+
+
+# ─── Tormenta de ideas guiada (3 caminos → explorar uno) ─────────────────────
+
+def mensajes_tres_caminos(contexto: str, foco: str = "") -> list[Mensaje]:
+    """Pide EXACTAMENTE 3 caminos radicalmente distintos para continuar."""
+    peticion = (
+        "El autor está atascado. Propón EXACTAMENTE 3 caminos posibles para "
+        "continuar la historia, RADICALMENTE DISTINTOS entre sí en dirección, "
+        "tono o consecuencias (evita variaciones de la misma idea). Formato "
+        "estricto: una línea por camino, así:\n"
+        "1) Título breve — una frase que lo describa\n"
+        "2) Título breve — una frase que lo describa\n"
+        "3) Título breve — una frase que lo describa\n"
+        "No añadas nada más."
+    )
+    if foco:
+        peticion += f"\nTen en cuenta: {foco}."
+    return [
+        {"role": "system", "content": _SISTEMA_IDEAS},
+        {"role": "user", "content": f"{peticion}\n\nCONTEXTO DE LA NOVELA:\n{contexto}"},
+    ]
+
+
+def parsear_opciones(respuesta: str) -> list[tuple[str, str]]:
+    """Extrae [(título, descripción)] de la respuesta de los 3 caminos."""
+    opciones: list[tuple[str, str]] = []
+    for linea in respuesta.splitlines():
+        m = re.match(r"^\s*\(?[1-3][)\.\-:]\s*(.+)$", linea)
+        if not m:
+            continue
+        cuerpo = m.group(1).strip().lstrip("*").strip()
+        titulo, desc = cuerpo, ""
+        for sep in (" — ", " – ", " - ", ": "):
+            if sep in cuerpo:
+                titulo, desc = cuerpo.split(sep, 1)
+                break
+        opciones.append((titulo.strip(" *"), desc.strip()))
+        if len(opciones) == 3:
+            break
+    return opciones
+
+
+def mensajes_desarrollar_camino(contexto: str, titulo: str, descripcion: str,
+                                foco: str = "") -> list[Mensaje]:
+    """Desarrolla el camino elegido para ayudar a seguir escribiendo."""
+    camino = titulo + (f" — {descripcion}" if descripcion else "")
+    peticion = (
+        f"El autor ha elegido continuar por este camino:\n«{camino}»\n\n"
+        "Ayúdale a escribir por ahí. Devuelve, en español y sin encabezados "
+        "de sección:\n"
+        "1) Un párrafo de continuación en el estilo del manuscrito que arranque "
+        "ese camino (listo para pegar en el texto).\n"
+        "2) Después, una línea «— Hacia dónde puede ir —» y 3 o 4 viñetas «- » "
+        "con posibles desarrollos y una complicación.\n"
+        "No reescribas lo ya escrito; continúa a partir de ahí."
+    )
+    if foco:
+        peticion += f"\nContexto del punto de atasco: {foco}."
+    return [
+        {"role": "system", "content": _SISTEMA_IDEAS},
+        {"role": "user", "content": f"{peticion}\n\nCONTEXTO DE LA NOVELA:\n{contexto}"},
+    ]
