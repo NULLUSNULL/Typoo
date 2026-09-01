@@ -51,6 +51,7 @@ class EditorMarkdown(QPlainTextEdit):
     modificado_cambiado = Signal(bool)      # Emite True cuando hay cambios sin guardar
     foco_recibido = Signal()                # Emite cuando el editor gana el foco
     tamano_zoom_cambiado = Signal(int)      # Emite el nuevo tamaño tras zoom (Ctrl+rueda)
+    ia_reescribir = Signal(str)             # Emite el id de intención de reescritura (IA)
 
     def __init__(self, parent: Optional[QWidget] = None) -> None:
         super().__init__(parent)
@@ -462,6 +463,23 @@ class EditorMarkdown(QPlainTextEdit):
                 return
         super().keyPressEvent(evento)
         self._actualizar_completador()
+
+    # ─── Menú contextual (acciones de IA sobre la selección) ─────────────────
+
+    def contextMenuEvent(self, evento) -> None:  # type: ignore[override]
+        menu = self.createStandardContextMenu()
+        try:
+            if self._config.ia_habilitada and self.textCursor().hasSelection():
+                from ai.tareas import INTENCIONES_REESCRITURA
+                menu.addSeparator()
+                submenu = menu.addMenu("Reescribir con IA")
+                for intencion in INTENCIONES_REESCRITURA:
+                    accion = submenu.addAction(intencion.etiqueta)
+                    accion.triggered.connect(
+                        lambda checked=False, i=intencion.id: self.ia_reescribir.emit(i))
+        except Exception:
+            pass
+        menu.exec(evento.globalPos())
 
     # ─── Zoom con la rueda del ratón ─────────────────────────────────────────
 

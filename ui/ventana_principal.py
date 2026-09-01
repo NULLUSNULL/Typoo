@@ -355,9 +355,11 @@ class VentanaPrincipal(QMainWindow):
     # ─── Menú IA ──────────────────────────────────────────────────────────────
 
     def _reconstruir_menu_ia(self) -> None:
-        """Rellena el menú IA según si el asistente está habilitado (opt-in)."""
-        from ai.tareas import INTENCIONES_REESCRITURA
+        """Rellena el menú IA según si el asistente está habilitado (opt-in).
 
+        La reescritura vive en el menú contextual del editor y el dossier en el
+        menú contextual del explorador; aquí quedan las acciones globales.
+        """
         menu = self._menu_ia
         menu.clear()
 
@@ -366,29 +368,23 @@ class VentanaPrincipal(QMainWindow):
 
         if self._config.ia_habilitada:
             menu.addSeparator()
-            submenu = menu.addMenu("Reescribir selección")
-            for intencion in INTENCIONES_REESCRITURA:
-                ac = QAction(intencion.etiqueta, self)
-                ac.triggered.connect(
-                    lambda checked=False, i=intencion.id: self._reescribir_seleccion(i)
-                )
-                submenu.addAction(ac)
+            ac_ideas = QAction("Tormenta de ideas…", self)
+            ac_ideas.triggered.connect(self._ia_tormenta)
+            menu.addAction(ac_ideas)
 
-            menu.addSeparator()
-            m_dossier = menu.addMenu("Dossier")
-            for etiqueta, metodo in (
-                ("Generar sinopsis de la escena activa", self._ia_sinopsis),
-                ("Sugerir ficha del elemento activo", self._ia_ficha),
-                ("Revisar coherencia del personaje activo", self._ia_coherencia),
-            ):
-                ac = QAction(etiqueta, self)
-                ac.triggered.connect(lambda checked=False, m=metodo: m())
-                m_dossier.addAction(ac)
-
-            menu.addSeparator()
             ac_chat = QAction("Asistente (chat con contexto)…", self)
             ac_chat.triggered.connect(self._abrir_asistente)
             menu.addAction(ac_chat)
+
+            menu.addSeparator()
+            ac_ayuda = QAction("Cómo usar la IA", self)
+            ac_ayuda.setEnabled(False)
+            menu.addAction(ac_ayuda)
+            for txt in ("• Reescribir: clic derecho sobre el texto seleccionado",
+                        "• Dossier: clic derecho en una escena/personaje/ubicación"):
+                a = QAction(txt, self)
+                a.setEnabled(False)
+                menu.addAction(a)
 
     def _accion(
         self,
@@ -433,6 +429,8 @@ class VentanaPrincipal(QMainWindow):
                 lambda item, destino, origen=panel:
                     self._mover_a_panel(item, origen, destino)
             )
+            # Reescritura con IA desde el menú contextual del editor.
+            panel.ia_reescribir_solicitada.connect(self._reescribir_seleccion)
 
         # Panel de detalles: guardar los metadatos editados (con retardo)
         self._timer_metadatos = QTimer(self)
@@ -464,6 +462,8 @@ class VentanaPrincipal(QMainWindow):
         self._explorador.elemento_eliminado.connect(
             lambda *_: self._aplicar_nombres_editores()
         )
+        # Acciones de dossier con IA desde el menú contextual del explorador.
+        self._explorador.accion_ia_solicitada.connect(self._al_accion_ia_explorador)
 
         # Barra de formato (orientada a novela)
         bh = self._barra_formato
@@ -1321,18 +1321,41 @@ class VentanaPrincipal(QMainWindow):
             total += len(bloque)
         return "\n\n".join(partes)
 
-    def _ia_sinopsis(self) -> None:
+    def _texto_de_item(self, item) -> str:
+        """Texto de un documento: del editor abierto si lo está, o del disco."""
+        loc = self._localizar_item_abierto(item.id)
+        if loc:
+            _panel, _num, indice = loc
+            editor = loc[0].widget(indice)
+            if editor is not None:
+                return editor.toPlainText()
+        try:
+            return self._gestor.leer_documento(item) or ""
+        except Exception:
+            return ""
+
+    def _al_accion_ia_explorador(self, accion: str, item) -> None:
+        """Despacha las acciones de dossier lanzadas desde el explorador."""
+        if accion == "sinopsis":
+            self._ia_sinopsis(item)
+        elif accion == "ficha":
+            self._ia_ficha(item)
+        elif accion == "coherencia":
+            self._ia_coherencia(item)
+
+    def _ia_sinopsis(self, item=None) -> None:
         if not self._config.ia_habilitada:
             return
-        editor, item = self._item_editor_activo()
+        if item is None:
+            item = self._item_editor_activo()[1]
         if not item:
-            self._mostrar_advertencia("Sin documento", "Abre una escena o capítulo primero.")
+            self._mostrar_advertencia("Sin documento", "Abre o selecciona una escena o capítulo.")
             return
         if item.tipo not in (TipoElemento.ESCENA, TipoElemento.CAPITULO):
             self._mostrar_advertencia(
                 "No aplicable", "La sinopsis se genera para escenas o capítulos.")
             return
-        texto = editor.toPlainText().strip()
+        texto = self._texto_de_item(item).strip()
         if not texto:
             self._mostrar_advertencia("Vacío", "El documento no tiene texto.")
             return
@@ -1352,20 +1375,21 @@ class VentanaPrincipal(QMainWindow):
             self._panel_metadatos.mostrar_item(item)
             self._barra_estado.mostrar_mensaje("Resumen actualizado con la sinopsis.", 3000)
 
-    def _ia_ficha(self) -> None:
+    def _ia_ficha(self, item=None) -> None:
         if not self._config.ia_habilitada:
             return
-        editor, item = self._item_editor_activo()
+        if item is None:
+            item = self._item_editor_activo()[1]
         if not item or item.tipo not in (TipoElemento.PERSONAJE, TipoElemento.UBICACION):
             self._mostrar_advertencia(
-                "No aplicable", "Abre un personaje o una ubicación para sugerir su ficha.")
+                "No aplicable", "Selecciona o abre un personaje o una ubicación.")
             return
         from core.metadatos import etiqueta_tipo
         from ai.contexto import truncar, ficha_a_texto
         from ai.tareas import campos_ficha, mensajes_ficha, parsear_campos
         from ui.dialogos.resultado_ia import DialogoResultadoIA
 
-        descripcion = editor.toPlainText().strip()
+        descripcion = self._texto_de_item(item).strip()
         partes = [f"Ficha actual:\n{ficha_a_texto(item)}"]
         if descripcion:
             partes.append(f"Descripción / notas:\n{descripcion}")
@@ -1400,13 +1424,14 @@ class VentanaPrincipal(QMainWindow):
                     "Sin cambios",
                     "No había campos vacíos que rellenar (los ya escritos se conservan).")
 
-    def _ia_coherencia(self) -> None:
+    def _ia_coherencia(self, item=None) -> None:
         if not self._config.ia_habilitada:
             return
-        editor, item = self._item_editor_activo()
+        if item is None:
+            item = self._item_editor_activo()[1]
         if not item or item.tipo != TipoElemento.PERSONAJE:
             self._mostrar_advertencia(
-                "No aplicable", "Abre un personaje para revisar su coherencia.")
+                "No aplicable", "Selecciona o abre un personaje para revisar su coherencia.")
             return
         from ai.contexto import truncar, ficha_a_texto
         from ai.tareas import mensajes_coherencia
@@ -1425,6 +1450,43 @@ class VentanaPrincipal(QMainWindow):
             titulo=f"Coherencia: {item.nombre}",
             acciones=[],  # informe de solo lectura
             etiqueta_original="Ficha", etiqueta_sugerencia="Informe de coherencia",
+            parent=self)
+        dialogo.exec()
+
+    def _ia_tormenta(self) -> None:
+        """Sugiere formas de continuar la historia a partir del punto actual."""
+        if not self._config.ia_habilitada:
+            return
+        if not self._gestor.hay_proyecto:
+            self._mostrar_advertencia("Sin proyecto", "Abre un proyecto primero.")
+            return
+        from ai.contexto import truncar
+        from ai.tareas import mensajes_tormenta
+        from ui.dialogos.resultado_ia import DialogoResultadoIA
+
+        proyecto = self._gestor.proyecto_activo
+        lineas = []
+        for escena in proyecto.escenas_en_orden():
+            resumen = (escena.metadatos or {}).get("resumen", "")
+            lineas.append(f"- {escena.nombre}" + (f": {resumen}" if resumen else ""))
+        esquema = "\n".join(lineas) or "(todavía no hay escenas)"
+        tramas = ", ".join(t.nombre for t in proyecto.tramas) or "(sin tramas definidas)"
+
+        partes = [f"Tramas: {tramas}", f"Escenas hasta ahora:\n{esquema}"]
+        foco = ""
+        item = self._item_editor_activo()[1]
+        if item is not None and item.tipo == TipoElemento.ESCENA:
+            texto = self._texto_de_item(item).strip()
+            if texto:
+                partes.append(f"Escena actual «{item.nombre}»:\n{truncar(texto, 2000)}")
+                foco = f"cómo continuar tras «{item.nombre}»"
+        contexto = truncar("\n\n".join(partes), 8000)
+        mensajes = mensajes_tormenta(contexto, foco)
+        dialogo = DialogoResultadoIA(
+            self._proveedor_ia(), mensajes, esquema,
+            titulo="Tormenta de ideas",
+            acciones=[],  # informe de solo lectura
+            etiqueta_original="Tu historia", etiqueta_sugerencia="Ideas para continuar",
             parent=self)
         dialogo.exec()
 

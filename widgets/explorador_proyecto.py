@@ -18,6 +18,7 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
+from core.configuracion import Configuracion
 from core.constantes import TipoElemento
 from core.logger import logger
 from models.documento import ItemProyecto
@@ -113,6 +114,7 @@ class ExploradorProyecto(QWidget):
     elemento_creado       = Signal(object, str) # (ItemProyecto nuevo, padre_id)
     elemento_movido       = Signal(str)         # id del elemento reordenado/movido
     abrir_en_panel        = Signal(object, int) # (ItemProyecto, número de panel 1|2|3)
+    accion_ia_solicitada  = Signal(str, object) # (acción: sinopsis|ficha|coherencia, ItemProyecto)
 
     def __init__(self, parent: Optional[QWidget] = None) -> None:
         super().__init__(parent)
@@ -357,6 +359,8 @@ class ExploradorProyecto(QWidget):
                     accion_eliminar = QAction("Eliminar", self)
                     accion_eliminar.triggered.connect(lambda: self._eliminar(item))
                     menu.addAction(accion_eliminar)
+
+                self._agregar_acciones_ia(menu, item)
         else:
             # Clic en área vacía
             if self._proyecto:
@@ -364,6 +368,28 @@ class ExploradorProyecto(QWidget):
 
         if not menu.isEmpty():
             menu.exec(self._arbol.viewport().mapToGlobal(posicion))
+
+    def _agregar_acciones_ia(self, menu: QMenu, item: ItemProyecto) -> None:
+        """Añade acciones de IA (dossier) según el tipo, si la IA está habilitada."""
+        if not Configuracion().ia_habilitada:
+            return
+        acciones: list[tuple[str, str]] = []
+        if item.tipo in (TipoElemento.ESCENA, TipoElemento.CAPITULO):
+            acciones.append(("sinopsis", "Generar sinopsis con IA"))
+        elif item.tipo == TipoElemento.PERSONAJE:
+            acciones.append(("ficha", "Sugerir ficha con IA"))
+            acciones.append(("coherencia", "Revisar coherencia con IA"))
+        elif item.tipo == TipoElemento.UBICACION:
+            acciones.append(("ficha", "Sugerir ficha con IA"))
+        if not acciones:
+            return
+        menu.addSeparator()
+        for accion_id, etiqueta in acciones:
+            ac = QAction(etiqueta, self)
+            ac.triggered.connect(
+                lambda checked=False, a=accion_id, it=item:
+                    self.accion_ia_solicitada.emit(a, it))
+            menu.addAction(ac)
 
     def _agregar_acciones_crear(self, menu: QMenu, padre: ItemProyecto) -> None:
         """

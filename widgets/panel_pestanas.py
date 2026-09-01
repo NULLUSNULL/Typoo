@@ -33,6 +33,7 @@ class PanelPestanas(QTabWidget):
     documento_modificado   = Signal(str, bool)  # (nombre_archivo, modificado)
     palabras_actualizadas  = Signal(int)        # conteo de palabras del editor activo
     mover_a_panel          = Signal(object, int) # (ItemProyecto, panel_destino 1|2|3)
+    ia_reescribir_solicitada = Signal(str)       # id de intención de reescritura (IA)
 
     def __init__(self, parent: Optional[QWidget] = None) -> None:
         super().__init__(parent)
@@ -91,6 +92,7 @@ class PanelPestanas(QTabWidget):
         )
         editor.palabras_cambiadas.connect(self._al_cambiar_palabras)
         editor.foco_recibido.connect(lambda ed=editor: self._al_foco_editor(ed))
+        editor.ia_reescribir.connect(self.ia_reescribir_solicitada)
 
         editor.ruta_archivo = item.ruta_relativa
         editor.nombre_archivo = item.nombre

@@ -193,3 +193,29 @@ def mensajes_chat(pregunta: str, contexto: str,
         contenido = f"Pregunta: {pregunta}"
     mensajes.append({"role": "user", "content": contenido})
     return mensajes
+
+
+# ─── Tormenta de ideas ───────────────────────────────────────────────────────
+
+_SISTEMA_IDEAS = (
+    "Eres un asesor creativo de escritura de novela, en español. Ayudas al autor "
+    "a desbloquearse con ideas concretas, variadas y accionables, respetando lo "
+    "que ya está escrito. No reescribes el texto: propones caminos posibles."
+)
+
+
+def mensajes_tormenta(contexto: str, foco: str = "") -> list[Mensaje]:
+    """Ideas para continuar la historia desde el punto actual (antiestancamiento)."""
+    peticion = (
+        "Propón entre 5 y 8 ideas concretas para continuar la historia desde este "
+        "punto: próximas escenas posibles, complicaciones, giros, decisiones de los "
+        "personajes y maneras de hacer avanzar las tramas. Enumera cada idea en una "
+        "línea que empiece por «- », de forma específica y variada (evita ideas "
+        "genéricas)."
+    )
+    if foco:
+        peticion += f"\nCéntrate especialmente en: {foco}."
+    return [
+        {"role": "system", "content": _SISTEMA_IDEAS},
+        {"role": "user", "content": f"{peticion}\n\nCONTEXTO DE LA NOVELA:\n{contexto}"},
+    ]

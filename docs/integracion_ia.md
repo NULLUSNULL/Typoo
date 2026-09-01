@@ -131,6 +131,17 @@ fichas de personajes/ubicaciones y tramas.
   que responde preguntas sobre el manuscrito. Recuperación léxica ligera
   (BM25, `ai/recuperacion.py`, sin dependencias) sobre escenas y dossier; cita
   las fuentes usadas y mantiene el historial de la conversación.
+- **Tormenta de ideas ✅ (hecho):** desde el menú IA, propone maneras concretas
+  de continuar la historia (antiestancamiento) a partir del esquema de escenas,
+  las tramas y la escena activa.
+
+### Ubicación en la interfaz (revisión de UX)
+- **Reescribir**: en el **menú contextual del editor** (clic derecho sobre la
+  selección), no en la barra de menús.
+- **Dossier** (sinopsis / ficha / coherencia): en el **menú contextual del
+  explorador**, contextual al tipo de elemento (escena, personaje, ubicación).
+- **Menú IA** (barra superior): solo acciones globales — configurar, tormenta de
+  ideas y abrir el asistente.
 
 ## Dependencias (todas opcionales, por modo)
 
