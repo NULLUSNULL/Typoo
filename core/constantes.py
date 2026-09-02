@@ -15,7 +15,7 @@ def _base_dir() -> Path:
 # ─── Información de la aplicación ────────────────────────────────────────────
 
 NOMBRE_APP     = "Typoo"
-VERSION_APP    = "1.0.0"
+VERSION_APP    = "1.2.0"
 AUTOR_APP      = "NULLUSNULL"
 LICENCIA_APP   = "MIT License"
 DESCRIPCION    = "Suite profesional de escritura de novelas y proyectos literarios"

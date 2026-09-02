@@ -123,6 +123,16 @@ class Configuracion:
             recientes.remove(ruta)
         recientes.insert(0, ruta)
         recientes = recientes[:10]  # máximo 10 recientes
+        self._guardar_recientes(recientes)
+
+    def eliminar_proyecto_reciente(self, ruta: str) -> None:
+        """Quita una ruta de la lista de proyectos conocidos."""
+        recientes = [r for r in self.proyectos_recientes() if r != ruta]
+        self._guardar_recientes(recientes)
+        if self.ultimo_proyecto == ruta:
+            self.ultimo_proyecto = ""
+
+    def _guardar_recientes(self, recientes: list[str]) -> None:
         self._settings.beginGroup("proyectos_recientes")
         self._settings.remove("")
         for i, r in enumerate(recientes):
