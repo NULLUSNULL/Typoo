@@ -368,6 +368,9 @@ QPushButton:default {{
 }}
 QPushButton:default:hover {{ background-color: {acento_hi}; }}
 QPushButton:default:pressed {{ background-color: {acento_lo}; }}
+QPushButton#BotonPeligro {{ color: {rojo}; border-color: {rojo}; }}
+QPushButton#BotonPeligro:enabled:hover {{ background-color: {rojo}; color: #FFFFFF; }}
+QPushButton#BotonPeligro:enabled:pressed {{ background-color: {rojo}; color: #FFFFFF; }}
 
 /* ── ComboBox ─────────────────────────────────────────────────────── */
 QComboBox {{

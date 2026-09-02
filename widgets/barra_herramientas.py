@@ -11,7 +11,7 @@ from __future__ import annotations
 
 from typing import Optional
 
-from PySide6.QtCore import Qt, Signal
+from PySide6.QtCore import Qt, QSize, Signal
 from PySide6.QtGui import QStandardItem, QStandardItemModel
 from PySide6.QtWidgets import (
     QComboBox,
@@ -24,7 +24,9 @@ from PySide6.QtWidgets import (
 )
 
 from core.configuracion import Configuracion
+from core.constantes import Tema
 from core.fuentes import grupos_para_selector
+from widgets.iconos_formato import iconos_barra
 
 # Tamaños de fuente ofrecidos en el selector.
 _TAMANOS = [10, 11, 12, 13, 14, 15, 16, 18, 20, 22, 24, 28, 32]
@@ -53,6 +55,16 @@ def _boton_formato(
     fuente.setUnderline(subrayado)
     fuente.setStrikeOut(tachado)
     btn.setFont(fuente)
+    return btn
+
+
+def _boton_icono(tooltip: str, ancho: int = 32) -> QToolButton:
+    """Factoría de botones de la barra que muestran un icono vectorial."""
+    btn = QToolButton()
+    btn.setToolTip(tooltip)
+    btn.setFixedSize(ancho, 28)
+    btn.setIconSize(QSize(20, 20))
+    btn.setCursor(Qt.CursorShape.PointingHandCursor)
     return btn
 
 
@@ -150,12 +162,12 @@ class BarraHerramientas(QWidget):
         layout.addWidget(_separador_vertical())
 
         # ── Grupo: Énfasis ───────────────────────────────────────────────────
-        self._btn_negrita   = _boton_formato("B", "Negrita (Ctrl+B)", negrita=True)
-        self._btn_cursiva   = _boton_formato("I", "Cursiva (Ctrl+I)", cursiva=True)
-        self._btn_subrayado = _boton_formato("U", "Subrayado (Ctrl+U)", subrayado=True)
-        self._btn_tachado   = _boton_formato("S", "Tachado", tachado=True)
-        self._btn_subindice = _boton_formato("x₂", "Subíndice", ancho=34)
-        self._btn_superind  = _boton_formato("x²", "Superíndice", ancho=34)
+        self._btn_negrita   = _boton_icono("Negrita (Ctrl+B)")
+        self._btn_cursiva   = _boton_icono("Cursiva (Ctrl+I)")
+        self._btn_subrayado = _boton_icono("Subrayado (Ctrl+U)")
+        self._btn_tachado   = _boton_icono("Tachado")
+        self._btn_subindice = _boton_icono("Subíndice", ancho=34)
+        self._btn_superind  = _boton_icono("Superíndice", ancho=34)
 
         self._btn_negrita.clicked.connect(self.negrita_solicitada)
         self._btn_cursiva.clicked.connect(self.cursiva_solicitada)
@@ -171,17 +183,17 @@ class BarraHerramientas(QWidget):
         layout.addWidget(_separador_vertical())
 
         # ── Grupo: Cita / epígrafe ───────────────────────────────────────────
-        self._btn_cita = _boton_formato("❝", "Cita / epígrafe")
+        self._btn_cita = _boton_icono("Cita / epígrafe")
         self._btn_cita.clicked.connect(self.cita_solicitada)
         layout.addWidget(self._btn_cita)
 
         layout.addWidget(_separador_vertical())
 
         # ── Grupo: Listas ────────────────────────────────────────────────────
-        self._btn_lista_v = _boton_formato("•", "Lista con viñetas")
-        self._btn_lista_n = _boton_formato("1.", "Lista numerada", ancho=34)
-        self._btn_sang_mas = _boton_formato("⇥", "Aumentar nivel / sangría (Tab)", ancho=32)
-        self._btn_sang_men = _boton_formato("⇤", "Disminuir nivel / sangría (Mayús+Tab)", ancho=32)
+        self._btn_lista_v = _boton_icono("Lista con viñetas")
+        self._btn_lista_n = _boton_icono("Lista numerada")
+        self._btn_sang_mas = _boton_icono("Aumentar nivel / sangría (Tab)")
+        self._btn_sang_men = _boton_icono("Disminuir nivel / sangría (Mayús+Tab)")
 
         self._btn_lista_v.clicked.connect(self.lista_viñeta_solicitada)
         self._btn_lista_n.clicked.connect(self.lista_num_solicitada)
@@ -213,7 +225,7 @@ class BarraHerramientas(QWidget):
         layout.addWidget(_separador_vertical())
 
         # ── Grupo: Separador de escena y caracteres especiales ───────────────
-        self._btn_sep = _boton_formato("✻", "Separador de escena (* * *)", ancho=34)
+        self._btn_sep = _boton_icono("Separador de escena (* * *)", ancho=34)
         self._btn_sep.clicked.connect(self.separador_solicitado)
         layout.addWidget(self._btn_sep)
 
@@ -234,6 +246,39 @@ class BarraHerramientas(QWidget):
         linea.setFrameShape(QFrame.Shape.HLine)
         linea.setObjectName("SeparadorBarraFormato")
         outer.addWidget(linea)
+
+        # Mapa de botones que muestran icono vectorial (clave → botón).
+        self._botones_icono = {
+            "negrita": self._btn_negrita,
+            "cursiva": self._btn_cursiva,
+            "subrayado": self._btn_subrayado,
+            "tachado": self._btn_tachado,
+            "subindice": self._btn_subindice,
+            "superindice": self._btn_superind,
+            "cita": self._btn_cita,
+            "lista_v": self._btn_lista_v,
+            "lista_n": self._btn_lista_n,
+            "sangria_mas": self._btn_sang_mas,
+            "sangria_men": self._btn_sang_men,
+            "separador": self._btn_sep,
+        }
+        self._aplicar_iconos()
+
+    # ─── Iconos del tema ──────────────────────────────────────────────────────
+
+    def _color_iconos(self) -> str:
+        """Color monocromo de los iconos según el tema activo."""
+        return "#E7E7EA" if self._config.tema == Tema.OSCURO else "#33343A"
+
+    def _aplicar_iconos(self) -> None:
+        iconos = iconos_barra(self._color_iconos())
+        for clave, btn in self._botones_icono.items():
+            if clave in iconos:
+                btn.setIcon(iconos[clave])
+
+    def aplicar_tema(self, *_args) -> None:
+        """Regenera los iconos al cambiar el tema (llamado desde la ventana)."""
+        self._aplicar_iconos()
 
     # ─── Selector de fuentes ──────────────────────────────────────────────────
 

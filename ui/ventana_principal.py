@@ -45,6 +45,7 @@ from services.gestor_archivos import GestorArchivos
 from services.gestor_proyectos import GestorProyectos
 from ui.dialogos.buscar_reemplazar import DialogoBuscarReemplazar
 from ui.dialogos.exportar import DialogoExportar
+from ui.dialogos.gestor_proyectos import DialogoGestorProyectos
 from ui.dialogos.nuevo_proyecto import DialogoNuevoProyecto
 from ui.dialogos.preferencias import DialogoPreferencias
 from ui.temas.gestor_temas import GestorTemas
@@ -101,6 +102,9 @@ class VentanaPrincipal(QMainWindow):
 
         self.setWindowTitle(NOMBRE_APP)
         logger.info("%s %s iniciado", NOMBRE_APP, VERSION_APP)
+
+        # Al arrancar, mostrar el gestor de proyectos (tras pintar la ventana).
+        QTimer.singleShot(0, lambda: self._abrir_gestor_proyectos(al_inicio=True))
 
     # ─── Construcción de la interfaz ──────────────────────────────────────────
 
@@ -251,6 +255,10 @@ class VentanaPrincipal(QMainWindow):
 
         # ── Menú Archivo ──────────────────────────────────────────────────────
         m_archivo = barra.addMenu("&Archivo")
+
+        ac = self._accion("&Gestor de proyectos…", "Ctrl+Shift+O",
+                          self._abrir_gestor_proyectos)
+        m_archivo.addAction(ac)
 
         ac = self._accion("&Nuevo proyecto…", "Ctrl+Shift+N", self._nuevo_proyecto)
         m_archivo.addAction(ac)
@@ -678,6 +686,35 @@ class VentanaPrincipal(QMainWindow):
                     editor.establecer_nombres(nombres)
 
     # ─── Gestión de proyectos ─────────────────────────────────────────────────
+
+    def _abrir_gestor_proyectos(self, al_inicio: bool = False) -> None:
+        """Muestra el gestor de proyectos (al inicio y desde el menú)."""
+        if not al_inicio and not self._confirmar_cierre_proyecto():
+            return
+        dialogo = DialogoGestorProyectos(
+            self._gestor, self._config, self, al_inicio=al_inicio)
+        dialogo.exec()
+
+        # Si se eliminó el proyecto abierto actualmente, cerrar su vista.
+        activo = self._gestor.proyecto_activo
+        if activo is not None and str(activo.ruta) in dialogo.rutas_eliminadas:
+            self._gestor.cerrar_proyecto()
+            self._limpiar_ui_sin_proyecto()
+
+        if dialogo.proyecto is not None:
+            self._cargar_proyecto_en_ui(dialogo.proyecto)
+            self._config.agregar_proyecto_reciente(str(dialogo.proyecto.ruta))
+            self._barra_estado.mostrar_mensaje(
+                f"Proyecto «{dialogo.proyecto.nombre}» abierto.")
+
+    def _limpiar_ui_sin_proyecto(self) -> None:
+        """Deja la interfaz sin proyecto cargado."""
+        self._panel1.cerrar_todas_pestanas()
+        self._panel2.cerrar_todas_pestanas()
+        self._panel3.cerrar_todas_pestanas()
+        self._explorador.limpiar()
+        self._panel_metadatos.mostrar_item(None)
+        self.setWindowTitle(NOMBRE_APP)
 
     def _nuevo_proyecto(self) -> None:
         if not self._confirmar_cierre_proyecto():
@@ -1171,6 +1208,7 @@ class VentanaPrincipal(QMainWindow):
                 editor = panel.widget(i)
                 if hasattr(editor, "aplicar_tema"):
                     editor.aplicar_tema(oscuro)
+        self._barra_formato.aplicar_tema(oscuro)
         self._actualizar_etiqueta_tema()
 
     def _actualizar_etiqueta_tema(self) -> None:
