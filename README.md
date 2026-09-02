@@ -1,33 +1,45 @@
-# Typoo — Suite Profesional de Escritura de Novelas
+<p align="center">
+  <img src="assets/iconos/typoo-icon.svg" alt="Typoo" width="128" height="128">
+</p>
 
-> Suite de escritura para proyectos literarios.
-> Construida con Python 3 y PySide6. Código abierto (MIT).
+<h1 align="center">📖 Typoo — Suite Profesional de Escritura de Novelas</h1>
 
-**Autoría:** NULLUSNULL | **Licencia:** MIT | **Versión:** 1.1.0
+<p align="center">
+  <em>Suite de escritura para proyectos literarios, construida con Python 3 y PySide6.</em><br>
+  ✍️ Editor literario · 🗂️ Dossier del proyecto · 🧵 Tramas · 🤖 Asistente de IA opcional
+</p>
+
+<p align="center">
+  <strong>Autoría:</strong> NULLUSNULL &nbsp;·&nbsp;
+  <strong>Licencia:</strong> MIT &nbsp;·&nbsp;
+  <strong>Versión:</strong> 1.2.0
+</p>
 
 ---
 
-## Funcionalidades
+## ✨ Funcionalidades
 
 | Área | Descripción |
 |------|-------------|
-| Dossier del proyecto | Estructura tipo dossier: **Manuscrito** (capítulos→escenas), **Personajes**, **Ubicaciones** y **Notas e investigación**. El orden de lectura es el del Manuscrito de arriba abajo |
-| Editor literario | Tipografía con serifas, columna de lectura centrada, interlineado amplio, resaltado de sintaxis discreto y zoom con Ctrl+rueda |
-| Tipografías empaquetadas | Fuentes literarias incluidas (Lora, EB Garamond, Literata, Crimson Pro, Spectral, Bitter, Playfair Display, Inter), seleccionables desde la barra de formato |
-| Múltiples áreas de trabajo | Hasta 3 editores simultáneos con splitters redimensionables |
-| Panel de detalles | Metadatos propios de cada tipo de elemento según la pestaña con foco; las escenas se vinculan a personajes, ubicaciones y tramas con selectores explícitos |
-| Visor de tramas | Rejilla *story grid* (escenas × entidad) coloreada por trama: muestra qué escenas desarrollan cada **trama**, en qué escenas aparece cada **personaje** y dónde ocurre cada **ubicación** |
-| Barra de formato | Tipografía y tamaño, negrita/cursiva/subrayado/tachado, sub/superíndice, encabezados, citas, listas con sangría multinivel (Tab/Mayús+Tab), separador de escena y caracteres especiales (guiones, comillas españolas/inglesas, símbolos) |
-| Búsqueda | Simple, con regex y búsqueda en todo el proyecto |
-| Exportación | Word (.docx), PDF y texto plano (.txt) |
-| Temas | Oscuro (defecto) y claro tipo macOS, intercambiables con Ctrl+Shift+T |
-| Autoguardado | Configurable, con copias de seguridad ZIP automáticas |
-| Respaldos | Ruta personalizada e intervalo configurable (5 min – 1 h) |
-| Modo concentración | F12 oculta paneles y activa pantalla completa |
+| 🗂️ Dossier del proyecto | Estructura tipo dossier: **Manuscrito** (capítulos→escenas), **Personajes**, **Ubicaciones** y **Notas e investigación**. El orden de lectura es el del Manuscrito de arriba abajo |
+| 📁 Gestor de proyectos | Ventana de inicio y menú *Archivo → Gestor de proyectos* (`Ctrl+Shift+O`): lista todos tus proyectos conocidos y permite **abrir**, **crear**, **añadir** una carpeta existente o **eliminar** un proyecto (con confirmación escribiendo su nombre) |
+| ✍️ Editor literario | Tipografía con serifas, columna de lectura centrada, interlineado amplio, resaltado de sintaxis discreto y zoom con Ctrl+rueda |
+| 🔤 Tipografías empaquetadas | Fuentes literarias incluidas (Lora, EB Garamond, Literata, Crimson Pro, Spectral, Bitter, Playfair Display, Inter), seleccionables desde la barra de formato |
+| 🪟 Múltiples áreas de trabajo | Hasta 3 editores simultáneos con splitters redimensionables |
+| 📝 Panel de detalles | Metadatos propios de cada tipo de elemento según la pestaña con foco; las escenas se vinculan a personajes, ubicaciones y tramas con selectores explícitos |
+| 🧵 Visor de tramas | Rejilla *story grid* (escenas × entidad) coloreada por trama: muestra qué escenas desarrollan cada **trama**, en qué escenas aparece cada **personaje** y dónde ocurre cada **ubicación** |
+| 🎨 Barra de formato | Iconos vectoriales nítidos para negrita/cursiva/subrayado/tachado, sub/superíndice, citas, listas con sangría multinivel (Tab/Mayús+Tab) y separador de escena; más caracteres especiales (guiones, comillas españolas/inglesas, símbolos) |
+| 🤖 Asistente de IA (opcional) | Reescritura, corrección, sinopsis y fichas, guardián de coherencia, tormenta de ideas y chat con contexto (RAG). **Desactivado por defecto** |
+| 🔍 Búsqueda | Simple, con regex y búsqueda en todo el proyecto |
+| 📤 Exportación | Word (.docx), PDF y texto plano (.txt) |
+| 🌗 Temas | Oscuro (defecto) y claro tipo macOS, intercambiables con Ctrl+Shift+T |
+| 💾 Autoguardado | Configurable, con copias de seguridad ZIP automáticas |
+| 🗄️ Respaldos | Ruta personalizada e intervalo configurable (5 min – 1 h) |
+| 🧘 Modo concentración | Deja solo el texto centrado: oculta menú, paneles y barra de edición. `F12` entra, `Esc` sale |
 
 ---
 
-## Requisitos
+## 🧩 Requisitos
 
 - **Python 3.9+**
 - **PySide6** (Qt for Python 6)
@@ -35,7 +47,7 @@
 
 ---
 
-## Instalación rápida
+## 🚀 Instalación rápida
 
 ```bash
 # 1. Clonar o descargar el repositorio
@@ -60,30 +72,74 @@ python main.py
 
 ---
 
-## Atajos de teclado principales
+## ⌨️ Atajos de teclado principales
 
 | Atajo | Acción |
 |-------|--------|
+| `Ctrl+Shift+O` | Gestor de proyectos |
 | `Ctrl+Shift+N` | Nuevo proyecto |
 | `Ctrl+O` | Abrir proyecto |
 | `Ctrl+S` | Guardar documento activo |
 | `Ctrl+Shift+S` | Guardar todos |
 | `Ctrl+F` | Buscar en documento |
 | `Ctrl+H` | Buscar y reemplazar |
-| `Ctrl+B` | Negrita |
-| `Ctrl+I` | Cursiva |
-| `Ctrl+U` | Subrayado |
+| `Ctrl+B` / `Ctrl+I` / `Ctrl+U` | Negrita / Cursiva / Subrayado |
 | `Ctrl+1..4` | Mostrar/ocultar paneles (explorador, áreas, detalles) |
 | `Ctrl+5` | Mostrar/ocultar el visor de tramas |
+| `Ctrl+6` | Mostrar/ocultar el asistente de IA |
 | `Ctrl+Shift+T` | Cambiar tema claro/oscuro |
 | `F11` | Pantalla completa |
-| `F12` | Modo concentración |
+| `F12` | Modo concentración (`Esc` para salir) |
 | `Ctrl+,` | Preferencias |
 | `Ctrl+Q` | Salir |
 
 ---
 
-## Áreas de trabajo
+## 📁 Gestor de proyectos
+
+Al abrir Typoo aparece el **gestor de proyectos**, también accesible en todo momento
+desde *Archivo → Gestor de proyectos* (`Ctrl+Shift+O`). Desde él puedes:
+
+- **Abrir** cualquier proyecto conocido (doble clic o botón *Abrir*).
+- **Crear** un proyecto nuevo.
+- **Añadir** una carpeta de proyecto existente que no esté en la lista.
+- **Eliminar** un proyecto del disco de forma permanente; por seguridad, hay que
+  **escribir su nombre exacto** para confirmar.
+
+Los proyectos que ya no se encuentran en disco se marcan como *no encontrado* y no
+pueden abrirse, pero sí quitarse de la lista.
+
+---
+
+## 🤖 Asistente de IA (opcional)
+
+La integración con IA es **opcional y está desactivada por defecto**. Sin habilitarla,
+Typoo funciona igual y no añade dependencias obligatorias. Se activa en
+*Herramientas → Preferencias → IA*.
+
+- **Proveedores**:
+  - ☁️ **Nube**: OpenAI, Anthropic, NVIDIA, Groq, Mistral.
+  - 💻 **Local**: Ollama y LM Studio.
+  - 📦 **Embebido**: modelos GGUF descargables que se ejecutan en tu equipo
+    (dependencia opcional `llama-cpp-python`).
+- **Funciones** (visibles solo tras habilitar):
+  - **Reescribir / corregir** la selección desde el menú contextual del editor
+    (pulir, condensar, expandir, cambiar de registro, «mostrar no contar»,
+    naturalizar diálogo, corrección ortográfica y gramatical).
+  - **Sinopsis** automática de escena/capítulo y **fichas** de personajes/ubicaciones.
+  - **Guardián de coherencia** a nivel de personaje y de capítulo.
+  - **Tormenta de ideas** guiada para continuar la historia.
+  - **Enviar a Notas**: la revisión de coherencia y la tormenta de ideas pueden
+    guardarse como una nota nueva, con un **título generado automáticamente**.
+  - **Asistente (chat con contexto / RAG)**: panel lateral (`Ctrl+6`) que responde
+    sobre el manuscrito citando sus fuentes.
+
+> Con proveedores en la nube, el texto que envíes saldrá de tu equipo hacia un
+> tercero. Los modos local y embebido funcionan sin conexión.
+
+---
+
+## 🪟 Áreas de trabajo
 
 Typoo dispone de hasta **3 áreas de trabajo** independientes, cada una con sus propias pestañas de documentos abiertos.
 
@@ -93,7 +149,7 @@ Typoo dispone de hasta **3 áreas de trabajo** independientes, cada una con sus 
 
 ---
 
-## Dossier del proyecto
+## 🗂️ Dossier del proyecto
 
 El árbol del proyecto sigue una estructura de **dossier** con cuatro secciones fijas:
 
@@ -119,7 +175,7 @@ El árbol del proyecto sigue una estructura de **dossier** con cuatro secciones 
 
 ---
 
-## Tramas y relaciones
+## 🧵 Tramas y relaciones
 
 Cada **trama** (hilo argumental) tiene un nombre y un color, y se gestiona desde el
 **visor de tramas** (menú *Ver → Visor de tramas*, `Ctrl+5`), una banda inferior con una
@@ -143,7 +199,7 @@ Las tramas se guardan en `proyecto.json` y los vínculos en los metadatos de cad
 
 ---
 
-## Respaldos automáticos
+## 💾 Respaldos automáticos
 
 En *Preferencias* (Ctrl+,) → sección **Respaldo automático**:
 
@@ -152,7 +208,7 @@ En *Preferencias* (Ctrl+,) → sección **Respaldo automático**:
 
 ---
 
-## Exportación
+## 📤 Exportación
 
 Requiere dependencias opcionales instaladas:
 
@@ -164,18 +220,19 @@ El diálogo de exportación (menú *Archivo → Exportar*) indica el comando exa
 
 ---
 
-## Temas visuales
+## 🌗 Temas visuales
 
 | Tema | Descripción |
 |------|-------------|
 | **Oscuro** (defecto) | Paleta One Dark. Fondo `#282C34`, texto `#ABB2BF`, acento `#528BFF`. |
 | **Claro** | Inspirado en macOS. Fondo `#F5F5F7`, editor blanco, acento `#007AFF`. |
 
-El tema se alterna con `Ctrl+Shift+T` y se recuerda entre sesiones.
+El tema se alterna con `Ctrl+Shift+T` y se recuerda entre sesiones. Los iconos de la
+barra de formato se redibujan automáticamente para adaptarse al tema activo.
 
 ---
 
-## Estructura del proyecto
+## 🗃️ Estructura del proyecto
 
 ```
 Typoo/
@@ -201,15 +258,25 @@ Typoo/
 │   ├── autoguardado.py          # Timer de autoguardado (QTimer)
 │   └── busqueda.py              # Búsqueda y reemplazo (regex)
 │
+├── ai/                          # Integración con IA (opcional)
+│   ├── proveedores.py           # Abstracción de proveedores (nube/local/embebido)
+│   ├── tareas.py                # Construcción de prompts por tarea
+│   ├── servicio.py              # Ejecución en segundo plano (QThread, streaming)
+│   ├── contexto.py              # Preparación de contexto y truncado
+│   ├── modelos.py               # Catálogo de modelos GGUF embebidos
+│   └── recuperacion.py          # Recuperación léxica ligera (BM25) para el chat
+│
 ├── editors/
 │   ├── resaltador_sintaxis.py   # QSyntaxHighlighter para Markdown (discreto)
 │   └── editor_markdown.py       # Editor literario: serifas, columna centrada, formato
 │
 ├── widgets/
 │   ├── explorador_proyecto.py   # Árbol lateral del dossier (QTreeWidget)
-│   ├── barra_herramientas.py    # Barra de formato Markdown con separador inferior
+│   ├── barra_herramientas.py    # Barra de formato con iconos vectoriales
+│   ├── iconos_formato.py        # Iconos de la barra dibujados con QPainter (temáticos)
 │   ├── panel_pestanas.py        # Contenedor de pestañas con botón × de cierre
 │   ├── panel_metadatos.py       # Panel lateral de detalles/metadatos del elemento
+│   ├── panel_asistente.py       # Panel de chat del asistente de IA (RAG)
 │   ├── selector_multiple.py     # Selector multiselección (personajes, tramas…)
 │   ├── panel_tramas.py          # Visor de tramas (rejilla story grid)
 │   └── barra_estado.py          # Barra de estado inferior (QStatusBar)
@@ -219,10 +286,15 @@ Typoo/
 │   ├── temas/
 │   │   └── gestor_temas.py      # Hojas de estilo QSS claro/oscuro
 │   └── dialogos/
+│       ├── gestor_proyectos.py  # Gestor de proyectos (inicio y menú)
 │       ├── nuevo_proyecto.py    # Diálogo de nuevo proyecto
 │       ├── buscar_reemplazar.py # Diálogo buscar/reemplazar
 │       ├── exportar.py          # Diálogo de exportación
-│       └── preferencias.py      # Diálogo de preferencias (fuente, respaldo, tema)
+│       ├── preferencias.py      # Diálogo de preferencias (fuente, respaldo, tema, IA)
+│       ├── config_ia_widget.py  # Configuración del asistente de IA
+│       ├── resultado_ia.py      # Diálogo de sugerencia de IA en streaming
+│       ├── tormenta_ia.py       # Diálogo de tormenta de ideas guiada
+│       └── modelos_embebidos.py # Gestor de descarga de modelos GGUF
 │
 ├── exporters/
 │   ├── exportador_docx.py       # Exportación a Word (python-docx)
@@ -230,13 +302,13 @@ Typoo/
 │   └── exportador_txt.py        # Exportación a texto plano
 │
 └── assets/
-    ├── iconos/                  # SVGs para flechas de SpinBox y árbol de proyecto
+    ├── iconos/                  # Iconos e icono de la aplicación (SVG/ICO/ICNS)
     └── fonts/                   # Tipografías literarias empaquetadas (SIL OFL) + licencias
 ```
 
 ---
 
-## Formato de proyecto en disco
+## 📦 Formato de proyecto en disco
 
 ```
 MiNovela/
@@ -254,7 +326,7 @@ MiNovela/
 
 ---
 
-## Empaquetado para distribución
+## 🛠️ Empaquetado para distribución
 
 Typoo se empaqueta con [PyInstaller](https://pyinstaller.org). Hay un script por
 plataforma; ambos incluyen todos los *assets* (tipografías e iconos) y el
@@ -325,7 +397,7 @@ pyinstaller --onefile --windowed --name Typoo \
 
 ---
 
-## Licencia
+## 📜 Licencia
 
 MIT License — Copyright (c) 2026 NULLUSNULL
 
@@ -333,6 +405,6 @@ Consulta el archivo [LICENSE](LICENSE) para más información.
 
 ---
 
-## Contribuciones
+## 🤝 Contribuciones
 
 Las contribuciones son bienvenidas mediante pull requests o issues en el repositorio.
