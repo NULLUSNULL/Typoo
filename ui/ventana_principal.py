@@ -6,7 +6,7 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Optional
 
-from PySide6.QtCore import Qt, QTimer
+from PySide6.QtCore import QEvent, Qt, QTimer
 from PySide6.QtGui import (
     QAction,
     QCloseEvent,
@@ -51,6 +51,7 @@ from ui.dialogos.preferencias import DialogoPreferencias
 from ui.temas.gestor_temas import GestorTemas
 from widgets.barra_estado import BarraEstado
 from widgets.barra_herramientas import BarraHerramientas
+from widgets.barra_titulo import BarraTitulo, RedimensionadorSinBorde, ES_LINUX
 from widgets.explorador_proyecto import ExploradorProyecto
 from widgets.panel_pestanas import PanelPestanas
 from widgets.panel_metadatos import PanelMetadatos
@@ -90,6 +91,9 @@ class VentanaPrincipal(QMainWindow):
         self._atajo_salir_concentracion: Optional[QShortcut] = None
         self._estado_concentracion: dict = {}
 
+        self._redimensionador = None
+        self._configurar_marco_sin_borde()
+
         self._construir_ui()
         self._crear_menus()
         self._crear_barra_herramientas()
@@ -111,10 +115,18 @@ class VentanaPrincipal(QMainWindow):
     def _construir_ui(self) -> None:
         self.setMinimumSize(900, 600)
 
-        # Widget central: splitter horizontal principal
+        # Widget central: contenedor vertical con la barra superior (título +
+        # formato) fija encima del splitter horizontal principal. Al no ser un
+        # dock, la barra superior no se puede redimensionar arrastrando.
+        self._central = QWidget()
+        self._central_layout = QVBoxLayout(self._central)
+        self._central_layout.setContentsMargins(0, 0, 0, 0)
+        self._central_layout.setSpacing(0)
+        self.setCentralWidget(self._central)
+
         self._splitter_principal = QSplitter(Qt.Orientation.Horizontal)
         self._splitter_principal.setChildrenCollapsible(False)
-        self.setCentralWidget(self._splitter_principal)
+        self._central_layout.addWidget(self._splitter_principal)
 
         # 1. Explorador de proyecto (izquierda)
         self._explorador = ExploradorProyecto()
@@ -151,56 +163,26 @@ class VentanaPrincipal(QMainWindow):
         self._barra_estado = BarraEstado(self)
         self.setStatusBar(self._barra_estado)
 
-    def _crear_banner(self) -> QWidget:
-        """Barra full-width con «Typoo» centrado (e icono de IA si está activa)."""
-        banner = QWidget()
-        banner.setObjectName("BannerApp")
-        bl = QHBoxLayout(banner)
-        bl.setContentsMargins(8, 5, 8, 5)
-        bl.setSpacing(8)
-        bl.addStretch(1)
-        lbl = QLabel(NOMBRE_APP)
-        lbl.setObjectName("BannerTitulo")
-        fuente = lbl.font()
-        fuente.setBold(True)
-        fuente.setPointSize(fuente.pointSize() + 1)
-        lbl.setFont(fuente)
-        bl.addWidget(lbl)
-        self._icono_ia = QLabel()
-        self._icono_ia.setFixedSize(18, 18)
-        self._icono_ia.setScaledContents(True)
-        self._icono_ia.hide()
-        bl.addWidget(self._icono_ia)
-        bl.addStretch(1)
-        return banner
-
     def _crear_barra_herramientas(self) -> None:
-        """Instala, en un único dock superior, el banner del nombre de la app
-        encima de la barra de formato (ambos a todo lo ancho)."""
+        """Construye la barra superior fija (título de la app + barra de formato)
+        e la inserta encima del área de edición. No es un dock, por lo que no se
+        puede redimensionar arrastrando su borde."""
+        self._barra_titulo = BarraTitulo(self, NOMBRE_APP)
+        # Compatibilidad: el indicador de IA vive ahora en la barra de título.
+        self._icono_ia = self._barra_titulo.icono_ia
+
         self._barra_formato = BarraHerramientas()
         self._barra_formato.setObjectName("BarraHerramientas")
 
-        contenedor = QWidget()
-        vbox = QVBoxLayout(contenedor)
+        self._barra_superior = QWidget()
+        self._barra_superior.setObjectName("BarraSuperior")
+        vbox = QVBoxLayout(self._barra_superior)
         vbox.setContentsMargins(0, 0, 0, 0)
         vbox.setSpacing(0)
-        vbox.addWidget(self._crear_banner())
+        vbox.addWidget(self._barra_titulo)
         vbox.addWidget(self._barra_formato)
 
-        dock = QDockWidget("Formato", self)
-        dock.setWidget(contenedor)
-        dock.setObjectName("DockFormato")
-        dock.setFeatures(
-            QDockWidget.DockWidgetFeature.DockWidgetMovable |
-            QDockWidget.DockWidgetFeature.DockWidgetFloatable
-        )
-        dock.setAllowedAreas(
-            Qt.DockWidgetArea.TopDockWidgetArea |
-            Qt.DockWidgetArea.BottomDockWidgetArea
-        )
-        dock.setTitleBarWidget(QWidget())  # Ocultar la barra de título del dock
-        self.addDockWidget(Qt.DockWidgetArea.TopDockWidgetArea, dock)
-        self._dock_formato = dock
+        self._central_layout.insertWidget(0, self._barra_superior)
         self._actualizar_banner_ia()
 
     def _actualizar_banner_ia(self) -> None:
@@ -1209,6 +1191,7 @@ class VentanaPrincipal(QMainWindow):
                 if hasattr(editor, "aplicar_tema"):
                     editor.aplicar_tema(oscuro)
         self._barra_formato.aplicar_tema(oscuro)
+        self._sincronizar_iconos_titulo()
         self._actualizar_etiqueta_tema()
 
     def _actualizar_etiqueta_tema(self) -> None:
@@ -1219,11 +1202,41 @@ class VentanaPrincipal(QMainWindow):
 
     def _aplicar_tema_inicial(self) -> None:
         GestorTemas.aplicar(self._config.tema)
+        self._sincronizar_iconos_titulo()
+
+    def _sincronizar_iconos_titulo(self) -> None:
+        """Recolorea los iconos de la barra de título según el tema activo."""
+        if hasattr(self, "_barra_titulo"):
+            oscuro = self._config.tema == Tema.OSCURO
+            self._barra_titulo.aplicar_tema("#E7E7EA" if oscuro else "#33343A")
 
     def _aplicar_icono(self) -> None:
-        """Establece el icono de la ventana desde el SVG del proyecto."""
+        """Establece el icono de la ventana (y de la barra de título) desde el
+        SVG del proyecto."""
         if RUTA_ICONO.exists():
-            self.setWindowIcon(QIcon(str(RUTA_ICONO)))
+            icono = QIcon(str(RUTA_ICONO))
+            self.setWindowIcon(icono)
+            if hasattr(self, "_barra_titulo"):
+                self._barra_titulo.establecer_icono(icono)
+
+    # ─── Marco propio (sin barra de título del sistema) en Linux ──────────────
+
+    def _configurar_marco_sin_borde(self) -> None:
+        """En Linux, oculta la barra de título del sistema y habilita el
+        redimensionado por los bordes; nuestra BarraTitulo la sustituye."""
+        if not ES_LINUX:
+            return
+        self.setWindowFlag(Qt.WindowType.FramelessWindowHint, True)
+        self._redimensionador = RedimensionadorSinBorde(self)
+        app = QApplication.instance()
+        if app is not None:
+            app.installEventFilter(self._redimensionador)
+
+    def changeEvent(self, evento) -> None:  # type: ignore[override]
+        super().changeEvent(evento)
+        if evento.type() == QEvent.Type.WindowStateChange and \
+                hasattr(self, "_barra_titulo"):
+            self._barra_titulo.actualizar_boton_maximizar()
 
     # ─── Pantalla completa / modo concentración ───────────────────────────────
 
@@ -1256,14 +1269,14 @@ class VentanaPrincipal(QMainWindow):
         self._estado_concentracion = {
             "explorador": self._explorador.isVisible(),
             "metadatos": self._panel_metadatos.isVisible(),
-            "formato": self._dock_formato.isVisible(),
+            "formato": self._barra_superior.isVisible(),
             "tramas": self._dock_tramas.isVisible(),
             "asistente": self._dock_asistente.isVisible(),
         }
         # Ocultar todo menos el texto.
         self._explorador.hide()
         self._panel_metadatos.hide()
-        self._dock_formato.hide()
+        self._barra_superior.hide()
         self._dock_tramas.hide()
         self._dock_asistente.hide()
         self.menuBar().hide()
@@ -1295,7 +1308,7 @@ class VentanaPrincipal(QMainWindow):
             panel.establecer_modo_concentracion(False)
         self._explorador.setVisible(estado.get("explorador", True))
         self._panel_metadatos.setVisible(estado.get("metadatos", True))
-        self._dock_formato.setVisible(estado.get("formato", True))
+        self._barra_superior.setVisible(estado.get("formato", True))
         self._dock_tramas.setVisible(estado.get("tramas", False))
         self._dock_asistente.setVisible(estado.get("asistente", False))
         self._ac_explorador.setChecked(estado.get("explorador", True))
@@ -1808,6 +1821,13 @@ class VentanaPrincipal(QMainWindow):
         self._autoguardado.detener()
         self._guardar_geometria()
         self._config.sincronizar()
+        # Retirar el filtro de redimensionado del marco propio (evita accesos a
+        # la ventana durante el cierre).
+        if self._redimensionador is not None:
+            app = QApplication.instance()
+            if app is not None:
+                app.removeEventFilter(self._redimensionador)
+            self._redimensionador = None
         logger.info("Typoo cerrado correctamente.")
         evento.accept()
 

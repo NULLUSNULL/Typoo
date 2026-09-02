@@ -20,7 +20,7 @@ Regla:
 - **minor** (x.**Y**.0) para nuevas funciones.
 - **major** (**X**.0.0) para cambios incompatibles.
 
-Versión actual: **1.2.0**.
+Versión actual: **1.3.0**.
 
 ## Comprobaciones antes de commitear
 

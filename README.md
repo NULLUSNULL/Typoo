@@ -12,7 +12,7 @@
 <p align="center">
   <strong>Autoría:</strong> NULLUSNULL &nbsp;·&nbsp;
   <strong>Licencia:</strong> MIT &nbsp;·&nbsp;
-  <strong>Versión:</strong> 1.2.0
+  <strong>Versión:</strong> 1.3.0
 </p>
 
 ---
@@ -36,6 +36,7 @@
 | 💾 Autoguardado | Configurable, con copias de seguridad ZIP automáticas |
 | 🗄️ Respaldos | Ruta personalizada e intervalo configurable (5 min – 1 h) |
 | 🧘 Modo concentración | Deja solo el texto centrado: oculta menú, paneles y barra de edición. `F12` entra, `Esc` sale |
+| 🪟 Barra de título propia (Linux) | En Linux la ventana prescinde de la barra de título del sistema: el nombre de la app y los botones de minimizar/maximizar/cerrar viven en la barra superior; se arrastra desde ahí y se maximiza con doble clic |
 
 ---
 

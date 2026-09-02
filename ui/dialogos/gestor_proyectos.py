@@ -92,6 +92,9 @@ class DialogoGestorProyectos(QDialog):
             "#ListaProyectos { border: 1px solid rgba(128,128,128,0.25);"
             " border-radius: 10px; padding: 4px; }"
             "#ListaProyectos::item { padding: 8px 10px; border-radius: 7px; }"
+            "#ListaProyectos::item:selected,"
+            "#ListaProyectos::item:selected:!active {"
+            " background: #2F6FE0; color: #FFFFFF; }"
         )
         layout.addWidget(self._lista, 1)
 
