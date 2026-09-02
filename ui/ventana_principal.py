@@ -1208,6 +1208,7 @@ class VentanaPrincipal(QMainWindow):
                 editor = panel.widget(i)
                 if hasattr(editor, "aplicar_tema"):
                     editor.aplicar_tema(oscuro)
+        self._barra_formato.aplicar_tema(oscuro)
         self._actualizar_etiqueta_tema()
 
     def _actualizar_etiqueta_tema(self) -> None:
