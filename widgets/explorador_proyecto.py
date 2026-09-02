@@ -376,7 +376,9 @@ class ExploradorProyecto(QWidget):
         acciones: list[tuple[str, str]] = []
         if item.tipo in (TipoElemento.ESCENA, TipoElemento.CAPITULO):
             acciones.append(("sinopsis", "Generar sinopsis con IA"))
-        elif item.tipo == TipoElemento.PERSONAJE:
+        if item.tipo == TipoElemento.CAPITULO:
+            acciones.append(("coherencia_cap", "Revisar coherencia con IA"))
+        if item.tipo == TipoElemento.PERSONAJE:
             acciones.append(("ficha", "Sugerir ficha con IA"))
             acciones.append(("coherencia", "Revisar coherencia con IA"))
         elif item.tipo == TipoElemento.UBICACION:

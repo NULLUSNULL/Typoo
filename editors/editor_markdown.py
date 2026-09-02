@@ -11,6 +11,9 @@ from typing import Optional
 from PySide6.QtCore import Qt, QStringListModel, Signal
 from PySide6.QtGui import (
     QFont,
+    QIcon,
+    QPainter,
+    QPixmap,
     QTextBlockFormat,
     QTextCursor,
     QWheelEvent,
@@ -467,27 +470,43 @@ class EditorMarkdown(QPlainTextEdit):
 
     # ─── Menú contextual (acciones de IA sobre la selección) ─────────────────
 
+    def _icono_emoji(self, emoji: str) -> QIcon:
+        """Convierte un emoji en un QIcon para que se alinee en la columna de
+        iconos del menú contextual (como el resto de acciones)."""
+        pm = QPixmap(18, 18)
+        pm.fill(Qt.GlobalColor.transparent)
+        painter = QPainter(pm)
+        fuente = self.font()
+        fuente.setPointSize(12)
+        painter.setFont(fuente)
+        painter.drawText(pm.rect(), Qt.AlignmentFlag.AlignCenter, emoji)
+        painter.end()
+        return QIcon(pm)
+
     def contextMenuEvent(self, evento) -> None:  # type: ignore[override]
         menu = self.createStandardContextMenu()
         try:
             if self._config.ia_habilitada:
                 menu.addSeparator()
                 if self.textCursor().hasSelection():
-                    ac_corregir = menu.addAction("✅  Corregir ortografía y gramática")
+                    ac_corregir = menu.addAction("Corregir ortografía y gramática")
+                    ac_corregir.setIcon(self._icono_emoji("✅"))
                     ac_corregir.triggered.connect(
                         lambda checked=False: self.ia_reescribir.emit("correccion"))
                     from ai.tareas import INTENCIONES_REESCRITURA
                     _emoji = {"pulir": "✨", "condensar": "✂️", "expandir": "➕",
                               "formal": "🎩", "coloquial": "💬", "mostrar": "🎬",
                               "dialogo": "🗨️"}
-                    submenu = menu.addMenu("✍️  Reescribir con IA")
+                    submenu = menu.addMenu("Reescribir con IA")
+                    submenu.setIcon(self._icono_emoji("✍️"))
                     for intencion in INTENCIONES_REESCRITURA:
-                        etiqueta = f"{_emoji.get(intencion.id, '•')}  {intencion.etiqueta}"
-                        accion = submenu.addAction(etiqueta)
+                        accion = submenu.addAction(intencion.etiqueta)
+                        accion.setIcon(self._icono_emoji(_emoji.get(intencion.id, "•")))
                         accion.triggered.connect(
                             lambda checked=False, i=intencion.id: self.ia_reescribir.emit(i))
                 # No requiere selección: ayuda a continuar desde el punto actual.
-                accion_ideas = menu.addAction("💡  Tormenta de ideas: ¿cómo continuar?…")
+                accion_ideas = menu.addAction("Tormenta de ideas: ¿cómo continuar?…")
+                accion_ideas.setIcon(self._icono_emoji("💡"))
                 accion_ideas.triggered.connect(lambda checked=False: self.ia_tormenta.emit())
         except Exception:
             pass

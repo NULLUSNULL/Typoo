@@ -94,9 +94,13 @@ class DialogoTormenta(QDialog):
         self._btn_explorar.setEnabled(False)
         self._btn_explorar.clicked.connect(self._explorar)
         fila.addWidget(self._btn_explorar)
+        self._btn_notas = QPushButton("Enviar a Notas")
+        self._btn_notas.hide()
+        self._btn_notas.clicked.connect(lambda: self._finalizar("notas"))
+        fila.addWidget(self._btn_notas)
         self._btn_insertar = QPushButton("Insertar en el editor")
         self._btn_insertar.hide()
-        self._btn_insertar.clicked.connect(self._insertar)
+        self._btn_insertar.clicked.connect(lambda: self._finalizar("insertar"))
         fila.addWidget(self._btn_insertar)
         self._btn_cerrar = QPushButton("Cerrar")
         self._btn_cerrar.clicked.connect(self.reject)
@@ -110,6 +114,7 @@ class DialogoTormenta(QDialog):
         self._area_opciones.show()
         self._btn_volver.hide()
         self._btn_insertar.hide()
+        self._btn_notas.hide()
         self._btn_explorar.show()
         self._btn_explorar.setEnabled(False)
         self._btn_regenerar.setVisible(True)
@@ -176,10 +181,13 @@ class DialogoTormenta(QDialog):
 
     def _al_terminar_desarrollo(self, texto: str) -> None:
         self.texto_resultado = (texto or "".join(self._buffer)).strip()
+        hay = bool(self.texto_resultado)
         self._btn_insertar.show()
-        self._btn_insertar.setEnabled(bool(self.texto_resultado))
-        if self.texto_resultado:
-            self._estado.setText("Puedes insertarlo en el editor para seguir escribiendo.")
+        self._btn_insertar.setEnabled(hay)
+        self._btn_notas.show()
+        self._btn_notas.setEnabled(hay)
+        if hay:
+            self._estado.setText("Insértalo en el editor o guárdalo en Notas.")
         else:
             self._estado.setText("El modelo no devolvió texto. Prueba «← Ver opciones».")
 
@@ -189,6 +197,7 @@ class DialogoTormenta(QDialog):
         self._vista.hide()
         self._btn_volver.hide()
         self._btn_insertar.hide()
+        self._btn_notas.hide()
         self._area_opciones.show()
         self._btn_explorar.show()
         self._btn_explorar.setEnabled(self._grupo.checkedId() >= 0)
@@ -196,8 +205,8 @@ class DialogoTormenta(QDialog):
         self._btn_regenerar.setEnabled(True)
         self._estado.setText("Elige un camino y pulsa «Explorar esta idea».")
 
-    def _insertar(self) -> None:
-        self.accion = "insertar"
+    def _finalizar(self, accion: str) -> None:
+        self.accion = accion
         if not self.texto_resultado:
             self.texto_resultado = self._vista.toPlainText().strip()
         self.accept()

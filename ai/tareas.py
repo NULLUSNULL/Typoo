@@ -303,3 +303,32 @@ def mensajes_correccion(texto: str) -> list[Mensaje]:
         {"role": "system", "content": _SISTEMA_CORRECTOR},
         {"role": "user", "content": f"Corrige el siguiente texto:\n\n{texto}"},
     ]
+
+
+# ─── Coherencia del capítulo / manuscrito y título de nota ───────────────────
+
+def mensajes_coherencia_capitulo(nombre: str, texto: str) -> list[Mensaje]:
+    """Revisa la coherencia narrativa (continuidad) de un capítulo o del
+    manuscrito: contradicciones, saltos temporales, cabos sueltos, nombres."""
+    return [
+        {"role": "system", "content": _SISTEMA_ANALISTA},
+        {"role": "user", "content":
+            f"Revisa la coherencia narrativa de «{nombre}». Señala posibles "
+            "problemas de continuidad: contradicciones de hechos u objetos, "
+            "cronología y saltos temporales, motivaciones incongruentes, cambios "
+            "de nombre y cabos sueltos. Enumera cada hallazgo en una línea que "
+            "empiece por «- » citando brevemente la evidencia. Si todo es "
+            "coherente, dilo con claridad.\n\n"
+            f"TEXTO:\n{texto}"},
+    ]
+
+
+def mensajes_titulo(texto: str) -> list[Mensaje]:
+    """Propone un título breve para archivar el contenido como nota."""
+    return [
+        {"role": "system", "content":
+            "Eres un asistente que titula notas en español. Respondes SOLO con "
+            "un título breve (3 a 7 palabras), sin comillas ni punto final."},
+        {"role": "user", "content":
+            f"Propón un título breve para esta nota:\n\n{texto}"},
+    ]

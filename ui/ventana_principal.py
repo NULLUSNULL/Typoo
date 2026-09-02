@@ -13,6 +13,7 @@ from PySide6.QtGui import (
     QFont,
     QIcon,
     QKeySequence,
+    QShortcut,
     QTextCursor,
 )
 from PySide6.QtWidgets import (
@@ -83,6 +84,10 @@ class VentanaPrincipal(QMainWindow):
         self._resultados_proyecto: list = []
 
         self._timer_respaldo: Optional[QTimer] = None
+
+        self._hint_concentracion: Optional[QLabel] = None
+        self._atajo_salir_concentracion: Optional[QShortcut] = None
+        self._estado_concentracion: dict = {}
 
         self._construir_ui()
         self._crear_menus()
@@ -1194,21 +1199,104 @@ class VentanaPrincipal(QMainWindow):
             self._panel_tramas.refrescar()
 
     def _alternar_concentracion(self) -> None:
-        """Oculta paneles laterales para centrar la atención en el texto."""
-        activo = self._ac_concentracion.isChecked()
-        self._explorador.setVisible(not activo)
-        self._panel_metadatos.setVisible(not activo)
-        self._ac_explorador.setChecked(not activo)
-        self._ac_detalles.setChecked(not activo)
-        self._dock_formato.setVisible(not activo)
-        if activo:
-            self._dock_tramas.hide()
-            self._ac_tramas.setChecked(False)
-        if activo:
-            self.showFullScreen()
-            self._barra_estado.mostrar_mensaje("Modo concentración activo. Presiona F12 para salir.")
+        """Modo concentración: deja únicamente el texto centrado en pantalla.
+
+        Oculta la barra de menú, la de estado, la barra de edición y todos los
+        paneles (explorador, detalles, tramas, asistente de IA). Muestra solo un
+        pequeño aviso centrado arriba: «Pulsa Esc para salir»."""
+        if self._ac_concentracion.isChecked():
+            self._entrar_concentracion()
         else:
-            self.showNormal()
+            self._salir_concentracion()
+
+    def _entrar_concentracion(self) -> None:
+        # Recordar el estado visible actual para restaurarlo al salir.
+        self._estado_concentracion = {
+            "explorador": self._explorador.isVisible(),
+            "metadatos": self._panel_metadatos.isVisible(),
+            "formato": self._dock_formato.isVisible(),
+            "tramas": self._dock_tramas.isVisible(),
+            "asistente": self._dock_asistente.isVisible(),
+        }
+        # Ocultar todo menos el texto.
+        self._explorador.hide()
+        self._panel_metadatos.hide()
+        self._dock_formato.hide()
+        self._dock_tramas.hide()
+        self._dock_asistente.hide()
+        self.menuBar().hide()
+        self._barra_estado.hide()
+        # Sincronizar acciones de menú (por si se reabre desde otra vía).
+        self._ac_explorador.setChecked(False)
+        self._ac_detalles.setChecked(False)
+        self._ac_tramas.setChecked(False)
+
+        self._mostrar_hint_concentracion()
+        if self._atajo_salir_concentracion is None:
+            self._atajo_salir_concentracion = QShortcut(
+                QKeySequence(Qt.Key.Key_Escape), self
+            )
+            self._atajo_salir_concentracion.activated.connect(
+                self._salir_por_atajo
+            )
+        self._atajo_salir_concentracion.setEnabled(True)
+        self.showFullScreen()
+
+    def _salir_concentracion(self) -> None:
+        estado = getattr(self, "_estado_concentracion", None) or {}
+        self.showNormal()
+        self.menuBar().show()
+        self._barra_estado.show()
+        self._explorador.setVisible(estado.get("explorador", True))
+        self._panel_metadatos.setVisible(estado.get("metadatos", True))
+        self._dock_formato.setVisible(estado.get("formato", True))
+        self._dock_tramas.setVisible(estado.get("tramas", False))
+        self._dock_asistente.setVisible(estado.get("asistente", False))
+        self._ac_explorador.setChecked(estado.get("explorador", True))
+        self._ac_detalles.setChecked(estado.get("metadatos", True))
+        self._ac_tramas.setChecked(estado.get("tramas", False))
+        if self._atajo_salir_concentracion is not None:
+            self._atajo_salir_concentracion.setEnabled(False)
+        if self._hint_concentracion is not None:
+            self._hint_concentracion.hide()
+
+    def _salir_por_atajo(self) -> None:
+        """Salir del modo concentración con Esc (actualiza la acción del menú)."""
+        if self._ac_concentracion.isChecked():
+            self._ac_concentracion.setChecked(False)
+            self._salir_concentracion()
+
+    def _mostrar_hint_concentracion(self) -> None:
+        if self._hint_concentracion is None:
+            hint = QLabel("Pulsa Esc para salir", self)
+            hint.setObjectName("HintConcentracion")
+            hint.setAlignment(Qt.AlignmentFlag.AlignCenter)
+            hint.setStyleSheet(
+                "#HintConcentracion {"
+                " background: rgba(20, 20, 22, 180);"
+                " color: #F2F2F7;"
+                " border-radius: 11px;"
+                " padding: 5px 14px;"
+                " font-size: 12px; }"
+            )
+            hint.setAttribute(Qt.WidgetAttribute.WA_TransparentForMouseEvents)
+            self._hint_concentracion = hint
+        self._hint_concentracion.show()
+        self._hint_concentracion.adjustSize()
+        self._hint_concentracion.raise_()
+        self._posicionar_hint()
+
+    def _posicionar_hint(self) -> None:
+        hint = getattr(self, "_hint_concentracion", None)
+        if hint is None or not hint.isVisible():
+            return
+        hint.adjustSize()
+        x = (self.width() - hint.width()) // 2
+        hint.move(max(0, x), 12)
+
+    def resizeEvent(self, evento) -> None:  # type: ignore[override]
+        super().resizeEvent(evento)
+        self._posicionar_hint()
 
     # ─── Respaldo ─────────────────────────────────────────────────────────────
 
@@ -1382,6 +1470,8 @@ class VentanaPrincipal(QMainWindow):
             self._ia_ficha(item)
         elif accion == "coherencia":
             self._ia_coherencia(item)
+        elif accion == "coherencia_cap":
+            self._ia_coherencia_capitulo(item)
 
     def _ia_sinopsis(self, item=None) -> None:
         if not self._config.ia_habilitada:
@@ -1488,10 +1578,97 @@ class VentanaPrincipal(QMainWindow):
         dialogo = DialogoResultadoIA(
             self._proveedor_ia(), mensajes, ficha_a_texto(item),
             titulo=f"Coherencia: {item.nombre}",
-            acciones=[],  # informe de solo lectura
+            acciones=[("notas", "Enviar a Notas")],
             etiqueta_original="Ficha", etiqueta_sugerencia="Informe de coherencia",
             parent=self)
-        dialogo.exec()
+        if dialogo.exec() and dialogo.accion == "notas" and dialogo.texto_resultado.strip():
+            self._guardar_en_notas(
+                f"Coherencia de «{item.nombre}»\n\n{dialogo.texto_resultado.strip()}")
+
+    def _texto_de_capitulo(self, capitulo, max_total: int = 8000) -> str:
+        """Concatena el texto de las escenas de un capítulo, en orden."""
+        partes: list[str] = []
+        total = 0
+        for hijo in sorted(capitulo.hijos, key=lambda h: h.orden):
+            if hijo.tipo != TipoElemento.ESCENA:
+                continue
+            texto = self._texto_de_item(hijo).strip()
+            if not texto:
+                continue
+            bloque = f"[{hijo.nombre}]\n{texto}"
+            if total + len(bloque) > max_total:
+                partes.append("[…]")
+                break
+            partes.append(bloque)
+            total += len(bloque)
+        return "\n\n".join(partes)
+
+    def _ia_coherencia_capitulo(self, item=None) -> None:
+        if not self._config.ia_habilitada:
+            return
+        if item is None:
+            item = self._item_editor_activo()[1]
+        if not item or item.tipo != TipoElemento.CAPITULO:
+            self._mostrar_advertencia(
+                "No aplicable", "Selecciona un capítulo para revisar su coherencia.")
+            return
+        texto = self._texto_de_capitulo(item)
+        if not texto.strip():
+            self._mostrar_advertencia(
+                "Sin contenido", "El capítulo no tiene escenas con texto.")
+            return
+        from ai.tareas import mensajes_coherencia_capitulo
+        from ui.dialogos.resultado_ia import DialogoResultadoIA
+        mensajes = mensajes_coherencia_capitulo(item.nombre, texto)
+        dialogo = DialogoResultadoIA(
+            self._proveedor_ia(), mensajes, texto,
+            titulo=f"Coherencia del capítulo: {item.nombre}",
+            acciones=[("notas", "Enviar a Notas")],
+            etiqueta_original="Capítulo", etiqueta_sugerencia="Informe de coherencia",
+            parent=self)
+        if dialogo.exec() and dialogo.accion == "notas" and dialogo.texto_resultado.strip():
+            self._guardar_en_notas(
+                f"Coherencia del capítulo «{item.nombre}»\n\n{dialogo.texto_resultado.strip()}")
+
+    # ─── Guardar contenido generado en Notas ─────────────────────────────────
+
+    def _guardar_en_notas(self, contenido: str) -> None:
+        """Genera un título con IA y guarda el contenido como una nota nueva."""
+        if not self._gestor.hay_proyecto:
+            self._mostrar_advertencia("Sin proyecto", "Abre un proyecto primero.")
+            return
+        from ai.tareas import mensajes_titulo
+        from ai.servicio import TrabajadorIA
+        self._barra_estado.mostrar_mensaje("Generando título y guardando en Notas…")
+        self._worker_titulo = TrabajadorIA(
+            self._proveedor_ia(), mensajes_titulo(contenido[:2000]),
+            max_tokens=32, parent=self)
+        self._worker_titulo.terminado.connect(
+            lambda t, c=contenido: self._crear_nota(t, c))
+        self._worker_titulo.error.connect(
+            lambda _e, c=contenido: self._crear_nota("", c))
+        self._worker_titulo.start()
+
+    def _crear_nota(self, titulo: str, contenido: str) -> None:
+        from models.proyecto import ROL_NOTAS
+        proyecto = self._gestor.proyecto_activo
+        if proyecto is None:
+            return
+        titulo = (titulo or "").strip().strip('"«»').splitlines()[0:1]
+        titulo = titulo[0][:70] if titulo else ""
+        if not titulo:
+            titulo = "Nota de IA"
+        notas = proyecto.carpeta_por_rol(ROL_NOTAS)
+        if notas is None:
+            self._mostrar_advertencia("Sin carpeta de notas",
+                                      "El proyecto no tiene la sección de Notas.")
+            return
+        nota = self._gestor.crear_elemento(titulo, TipoElemento.NOTA, notas.id, "")
+        if nota:
+            self._gestor.guardar_documento(nota, contenido)
+            self._explorador.refrescar()
+            self._aplicar_nombres_editores()
+            self._barra_estado.mostrar_mensaje(f"Guardado en Notas: «{titulo}».", 4000)
 
     def _ia_tormenta(self) -> None:
         """Sugiere formas de continuar la historia a partir del punto actual."""
@@ -1522,14 +1699,19 @@ class VentanaPrincipal(QMainWindow):
         contexto = truncar("\n\n".join(partes), 8000)
 
         dialogo = DialogoTormenta(self._proveedor_ia(), contexto, foco, parent=self)
-        if dialogo.exec() and dialogo.accion == "insertar" and dialogo.texto_resultado.strip():
+        if not dialogo.exec() or not dialogo.texto_resultado.strip():
+            return
+        resultado = dialogo.texto_resultado.strip()
+        if dialogo.accion == "insertar":
             destino = editor or self._editor_activo()
             if destino is not None:
                 cur = destino.textCursor()
                 cur.movePosition(QTextCursor.MoveOperation.EndOfBlock)
-                cur.insertText("\n\n" + dialogo.texto_resultado.strip() + "\n")
+                cur.insertText("\n\n" + resultado + "\n")
                 destino.setTextCursor(cur)
                 self._barra_estado.mostrar_mensaje("Idea insertada en el editor.", 3000)
+        elif dialogo.accion == "notas":
+            self._guardar_en_notas(f"Tormenta de ideas\n\n{resultado}")
 
     # ─── Cierre de la ventana ─────────────────────────────────────────────────
 
