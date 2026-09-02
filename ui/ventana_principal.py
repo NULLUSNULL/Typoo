@@ -13,13 +13,16 @@ from PySide6.QtGui import (
     QFont,
     QIcon,
     QKeySequence,
+    QShortcut,
     QTextCursor,
 )
 from PySide6.QtWidgets import (
     QApplication,
     QDockWidget,
     QFileDialog,
+    QHBoxLayout,
     QInputDialog,
+    QLabel,
     QMainWindow,
     QMessageBox,
     QSplitter,
@@ -51,6 +54,7 @@ from widgets.explorador_proyecto import ExploradorProyecto
 from widgets.panel_pestanas import PanelPestanas
 from widgets.panel_metadatos import PanelMetadatos
 from widgets.panel_tramas import PanelTramas
+from widgets.panel_asistente import PanelAsistente
 
 
 class VentanaPrincipal(QMainWindow):
@@ -80,6 +84,10 @@ class VentanaPrincipal(QMainWindow):
         self._resultados_proyecto: list = []
 
         self._timer_respaldo: Optional[QTimer] = None
+
+        self._hint_concentracion: Optional[QLabel] = None
+        self._atajo_salir_concentracion: Optional[QShortcut] = None
+        self._estado_concentracion: dict = {}
 
         self._construir_ui()
         self._crear_menus()
@@ -139,13 +147,44 @@ class VentanaPrincipal(QMainWindow):
         self._barra_estado = BarraEstado(self)
         self.setStatusBar(self._barra_estado)
 
+    def _crear_banner(self) -> QWidget:
+        """Barra full-width con «Typoo» centrado (e icono de IA si está activa)."""
+        banner = QWidget()
+        banner.setObjectName("BannerApp")
+        bl = QHBoxLayout(banner)
+        bl.setContentsMargins(8, 5, 8, 5)
+        bl.setSpacing(8)
+        bl.addStretch(1)
+        lbl = QLabel(NOMBRE_APP)
+        lbl.setObjectName("BannerTitulo")
+        fuente = lbl.font()
+        fuente.setBold(True)
+        fuente.setPointSize(fuente.pointSize() + 1)
+        lbl.setFont(fuente)
+        bl.addWidget(lbl)
+        self._icono_ia = QLabel()
+        self._icono_ia.setFixedSize(18, 18)
+        self._icono_ia.setScaledContents(True)
+        self._icono_ia.hide()
+        bl.addWidget(self._icono_ia)
+        bl.addStretch(1)
+        return banner
+
     def _crear_barra_herramientas(self) -> None:
-        """Crea e instala la barra de herramientas de formato."""
+        """Instala, en un único dock superior, el banner del nombre de la app
+        encima de la barra de formato (ambos a todo lo ancho)."""
         self._barra_formato = BarraHerramientas()
         self._barra_formato.setObjectName("BarraHerramientas")
 
+        contenedor = QWidget()
+        vbox = QVBoxLayout(contenedor)
+        vbox.setContentsMargins(0, 0, 0, 0)
+        vbox.setSpacing(0)
+        vbox.addWidget(self._crear_banner())
+        vbox.addWidget(self._barra_formato)
+
         dock = QDockWidget("Formato", self)
-        dock.setWidget(self._barra_formato)
+        dock.setWidget(contenedor)
         dock.setObjectName("DockFormato")
         dock.setFeatures(
             QDockWidget.DockWidgetFeature.DockWidgetMovable |
@@ -158,6 +197,24 @@ class VentanaPrincipal(QMainWindow):
         dock.setTitleBarWidget(QWidget())  # Ocultar la barra de título del dock
         self.addDockWidget(Qt.DockWidgetArea.TopDockWidgetArea, dock)
         self._dock_formato = dock
+        self._actualizar_banner_ia()
+
+    def _actualizar_banner_ia(self) -> None:
+        """Muestra el icono de IA en el banner cuando el asistente está activo."""
+        if not hasattr(self, "_icono_ia"):
+            return
+        if self._config.ia_habilitada:
+            from PySide6.QtGui import QIcon
+            from core.constantes import RUTA_ICONO
+            ruta = RUTA_ICONO.parent / "ia.svg"
+            if ruta.exists():
+                self._icono_ia.setPixmap(QIcon(str(ruta)).pixmap(18, 18))
+                self._icono_ia.setToolTip("Asistente de IA activo")
+                self._icono_ia.show()
+            else:
+                self._icono_ia.hide()
+        else:
+            self._icono_ia.hide()
 
         # Visor de tramas: banda inferior a lo ancho, plegable.
         self._panel_tramas = PanelTramas()
@@ -171,6 +228,21 @@ class VentanaPrincipal(QMainWindow):
         self.addDockWidget(Qt.DockWidgetArea.BottomDockWidgetArea, dock_tramas)
         dock_tramas.hide()
         self._dock_tramas = dock_tramas
+
+        # Asistente de IA (chat con contexto): panel lateral derecho, plegable.
+        self._panel_asistente = PanelAsistente()
+        self._panel_asistente.establecer_gestor(self._gestor)
+        dock_asistente = QDockWidget("Asistente", self)
+        dock_asistente.setObjectName("DockAsistente")
+        dock_asistente.setWidget(self._panel_asistente)
+        dock_asistente.setAllowedAreas(
+            Qt.DockWidgetArea.RightDockWidgetArea |
+            Qt.DockWidgetArea.LeftDockWidgetArea
+        )
+        self.addDockWidget(Qt.DockWidgetArea.RightDockWidgetArea, dock_asistente)
+        dock_asistente.hide()
+        dock_asistente.visibilityChanged.connect(self._al_cambiar_visibilidad_asistente)
+        self._dock_asistente = dock_asistente
 
     # ─── Sistema de menús ─────────────────────────────────────────────────────
 
@@ -270,6 +342,13 @@ class VentanaPrincipal(QMainWindow):
         )
         m_ver.addAction(self._ac_tramas)
 
+        self._ac_asistente = self._accion(
+            "Asistente de IA", "Ctrl+6",
+            self._alternar_asistente,
+            checkable=True, checked=False,
+        )
+        m_ver.addAction(self._ac_asistente)
+
         m_ver.addSeparator()
 
         self._ac_tema = self._accion(
@@ -316,7 +395,10 @@ class VentanaPrincipal(QMainWindow):
         # ── Menú Herramientas ─────────────────────────────────────────────────
         m_herr = barra.addMenu("&Herramientas")
 
-        ac = self._accion("&Preferencias…", "Ctrl+,", self._abrir_preferencias)
+        ac = self._accion("&Preferencias…", "Ctrl+,",
+                          lambda: self._abrir_preferencias())
+        # En macOS, Qt lo mueve al menú de la app (Typoo → Preferencias).
+        ac.setMenuRole(QAction.MenuRole.PreferencesRole)
         m_herr.addAction(ac)
 
         m_herr.addSeparator()
@@ -376,6 +458,9 @@ class VentanaPrincipal(QMainWindow):
                 lambda item, destino, origen=panel:
                     self._mover_a_panel(item, origen, destino)
             )
+            # Reescritura con IA desde el menú contextual del editor.
+            panel.ia_reescribir_solicitada.connect(self._reescribir_seleccion)
+            panel.ia_tormenta_solicitada.connect(self._ia_tormenta)
 
         # Panel de detalles: guardar los metadatos editados (con retardo)
         self._timer_metadatos = QTimer(self)
@@ -407,6 +492,8 @@ class VentanaPrincipal(QMainWindow):
         self._explorador.elemento_eliminado.connect(
             lambda *_: self._aplicar_nombres_editores()
         )
+        # Acciones de dossier con IA desde el menú contextual del explorador.
+        self._explorador.accion_ia_solicitada.connect(self._al_accion_ia_explorador)
 
         # Barra de formato (orientada a novela)
         bh = self._barra_formato
@@ -733,6 +820,10 @@ class VentanaPrincipal(QMainWindow):
 
     def _abrir_item_en_editor(self, item: ItemProyecto) -> None:
         if not item.ruta_relativa:
+            return
+        # Las carpetas (secciones como «Notas e investigación») no son documentos:
+        # no deben abrirse como una pestaña de edición.
+        if item.tipo in (TipoElemento.CARPETA, TipoElemento.PROYECTO):
             return
         # Un documento solo puede estar abierto en un área: si ya lo está, se activa.
         if self._activar_item_abierto(item):
@@ -1112,21 +1203,108 @@ class VentanaPrincipal(QMainWindow):
             self._panel_tramas.refrescar()
 
     def _alternar_concentracion(self) -> None:
-        """Oculta paneles laterales para centrar la atención en el texto."""
-        activo = self._ac_concentracion.isChecked()
-        self._explorador.setVisible(not activo)
-        self._panel_metadatos.setVisible(not activo)
-        self._ac_explorador.setChecked(not activo)
-        self._ac_detalles.setChecked(not activo)
-        self._dock_formato.setVisible(not activo)
-        if activo:
-            self._dock_tramas.hide()
-            self._ac_tramas.setChecked(False)
-        if activo:
-            self.showFullScreen()
-            self._barra_estado.mostrar_mensaje("Modo concentración activo. Presiona F12 para salir.")
+        """Modo concentración: deja únicamente el texto centrado en pantalla.
+
+        Oculta la barra de menú, la de estado, la barra de edición y todos los
+        paneles (explorador, detalles, tramas, asistente de IA). Muestra solo un
+        pequeño aviso centrado arriba: «Pulsa Esc para salir»."""
+        if self._ac_concentracion.isChecked():
+            self._entrar_concentracion()
         else:
-            self.showNormal()
+            self._salir_concentracion()
+
+    def _entrar_concentracion(self) -> None:
+        # Recordar el estado visible actual para restaurarlo al salir.
+        self._estado_concentracion = {
+            "explorador": self._explorador.isVisible(),
+            "metadatos": self._panel_metadatos.isVisible(),
+            "formato": self._dock_formato.isVisible(),
+            "tramas": self._dock_tramas.isVisible(),
+            "asistente": self._dock_asistente.isVisible(),
+        }
+        # Ocultar todo menos el texto.
+        self._explorador.hide()
+        self._panel_metadatos.hide()
+        self._dock_formato.hide()
+        self._dock_tramas.hide()
+        self._dock_asistente.hide()
+        self.menuBar().hide()
+        self._barra_estado.hide()
+        for panel in (self._panel1, self._panel2, self._panel3):
+            panel.establecer_modo_concentracion(True)
+        # Sincronizar acciones de menú (por si se reabre desde otra vía).
+        self._ac_explorador.setChecked(False)
+        self._ac_detalles.setChecked(False)
+        self._ac_tramas.setChecked(False)
+
+        self._mostrar_hint_concentracion()
+        if self._atajo_salir_concentracion is None:
+            self._atajo_salir_concentracion = QShortcut(
+                QKeySequence(Qt.Key.Key_Escape), self
+            )
+            self._atajo_salir_concentracion.activated.connect(
+                self._salir_por_atajo
+            )
+        self._atajo_salir_concentracion.setEnabled(True)
+        self.showFullScreen()
+
+    def _salir_concentracion(self) -> None:
+        estado = getattr(self, "_estado_concentracion", None) or {}
+        self.showNormal()
+        self.menuBar().show()
+        self._barra_estado.show()
+        for panel in (self._panel1, self._panel2, self._panel3):
+            panel.establecer_modo_concentracion(False)
+        self._explorador.setVisible(estado.get("explorador", True))
+        self._panel_metadatos.setVisible(estado.get("metadatos", True))
+        self._dock_formato.setVisible(estado.get("formato", True))
+        self._dock_tramas.setVisible(estado.get("tramas", False))
+        self._dock_asistente.setVisible(estado.get("asistente", False))
+        self._ac_explorador.setChecked(estado.get("explorador", True))
+        self._ac_detalles.setChecked(estado.get("metadatos", True))
+        self._ac_tramas.setChecked(estado.get("tramas", False))
+        if self._atajo_salir_concentracion is not None:
+            self._atajo_salir_concentracion.setEnabled(False)
+        if self._hint_concentracion is not None:
+            self._hint_concentracion.hide()
+
+    def _salir_por_atajo(self) -> None:
+        """Salir del modo concentración con Esc (actualiza la acción del menú)."""
+        if self._ac_concentracion.isChecked():
+            self._ac_concentracion.setChecked(False)
+            self._salir_concentracion()
+
+    def _mostrar_hint_concentracion(self) -> None:
+        if self._hint_concentracion is None:
+            hint = QLabel("Pulsa Esc para salir", self)
+            hint.setObjectName("HintConcentracion")
+            hint.setAlignment(Qt.AlignmentFlag.AlignCenter)
+            hint.setStyleSheet(
+                "#HintConcentracion {"
+                " background: rgba(20, 20, 22, 180);"
+                " color: #F2F2F7;"
+                " border-radius: 11px;"
+                " padding: 5px 14px;"
+                " font-size: 12px; }"
+            )
+            hint.setAttribute(Qt.WidgetAttribute.WA_TransparentForMouseEvents)
+            self._hint_concentracion = hint
+        self._hint_concentracion.show()
+        self._hint_concentracion.adjustSize()
+        self._hint_concentracion.raise_()
+        self._posicionar_hint()
+
+    def _posicionar_hint(self) -> None:
+        hint = getattr(self, "_hint_concentracion", None)
+        if hint is None or not hint.isVisible():
+            return
+        hint.adjustSize()
+        x = (self.width() - hint.width()) // 2
+        hint.move(max(0, x), 12)
+
+    def resizeEvent(self, evento) -> None:  # type: ignore[override]
+        super().resizeEvent(evento)
+        self._posicionar_hint()
 
     # ─── Respaldo ─────────────────────────────────────────────────────────────
 
@@ -1164,14 +1342,408 @@ class VentanaPrincipal(QMainWindow):
 
     # ─── Preferencias ─────────────────────────────────────────────────────────
 
-    def _abrir_preferencias(self) -> None:
-        dialogo = DialogoPreferencias(self)
+    def _abrir_preferencias(self, pestaña: str = "general") -> None:
+        dialogo = DialogoPreferencias(self, pestaña=pestaña)
         if dialogo.exec():
             self._autoguardado.detener()
             self._autoguardado.iniciar()
             self._reiniciar_timer_respaldo()
             self._aplicar_fuente_editores()
+            # Si la IA se desactivó, ocultar su panel.
+            if not self._config.ia_habilitada and self._dock_asistente.isVisible():
+                self._dock_asistente.hide()
+            self._actualizar_banner_ia()
             self._barra_estado.mostrar_mensaje("Preferencias guardadas.")
+
+    # ─── Asistente de IA ──────────────────────────────────────────────────────
+
+    def _alternar_asistente(self) -> None:
+        """Muestra/oculta el panel del asistente (menú Ver)."""
+        mostrar = self._ac_asistente.isChecked()
+        if mostrar and not self._config.ia_habilitada:
+            # Aún no configurado: abrir Preferencias en la pestaña de IA.
+            self._abrir_preferencias(pestaña="ia")
+            if not self._config.ia_habilitada:
+                self._ac_asistente.setChecked(False)
+                return
+        self._dock_asistente.setVisible(mostrar)
+        if mostrar:
+            self._dock_asistente.raise_()
+            self._panel_asistente.poner_foco()
+
+    def _al_cambiar_visibilidad_asistente(self, visible: bool) -> None:
+        """Mantiene sincronizada la marca del menú Ver con el dock."""
+        if hasattr(self, "_ac_asistente"):
+            self._ac_asistente.setChecked(visible)
+
+    def _reescribir_seleccion(self, intencion_id: str) -> None:
+        if not self._config.ia_habilitada:
+            return
+        editor = self._editor_activo()
+        if not editor:
+            self._mostrar_advertencia("Sin documento", "Abre un documento primero.")
+            return
+        cursor = editor.textCursor()
+        texto = cursor.selectedText()
+        if not texto.strip():
+            self._mostrar_advertencia(
+                "Sin selección", "Selecciona el texto que quieres reescribir.")
+            return
+        # selectedText() usa U+2029 como separador de párrafo; normalizar a \n.
+        texto = texto.replace(" ", "\n")
+
+        from ai.proveedores import crear_proveedor_desde_config
+        from ui.dialogos.resultado_ia import DialogoResultadoIA
+
+        proveedor = crear_proveedor_desde_config(self._config)
+        if intencion_id == "correccion":
+            from ai.tareas import mensajes_correccion
+            mensajes = mensajes_correccion(texto)
+            titulo = "Corregir ortografía y gramática"
+        else:
+            from ai.tareas import intencion_por_id, mensajes_reescritura
+            intencion = intencion_por_id(intencion_id)
+            mensajes = mensajes_reescritura(texto, intencion)
+            titulo = f"Reescribir: {intencion.etiqueta}"
+        dialogo = DialogoResultadoIA(
+            proveedor, mensajes, texto, titulo=titulo, parent=self)
+        if dialogo.exec() and dialogo.accion and dialogo.texto_resultado.strip():
+            cur = editor.textCursor()
+            if dialogo.accion == "reemplazar":
+                cur.insertText(dialogo.texto_resultado)
+            elif dialogo.accion == "insertar":
+                cur.setPosition(cur.selectionEnd())
+                cur.movePosition(QTextCursor.MoveOperation.EndOfBlock)
+                cur.insertText("\n\n" + dialogo.texto_resultado)
+            editor.setTextCursor(cur)
+
+    # -- Dossier asistido por IA ---------------------------------------------
+
+    def _proveedor_ia(self):
+        from ai.proveedores import crear_proveedor_desde_config
+        return crear_proveedor_desde_config(self._config)
+
+    def _item_editor_activo(self):
+        editor = self._editor_activo()
+        if not editor:
+            return None, None
+        return editor, getattr(editor, "item", None)
+
+    def _escenas_de_personaje(self, personaje_id: str, max_total: int = 6000) -> str:
+        """Texto de las escenas donde aparece el personaje (por metadatos)."""
+        if not self._gestor.hay_proyecto:
+            return ""
+        proyecto = self._gestor.proyecto_activo
+        partes: list[str] = []
+        total = 0
+        for escena in proyecto.escenas_en_orden():
+            meta = escena.metadatos or {}
+            refs = meta.get("personajes") or []
+            relacionada = (isinstance(refs, list) and personaje_id in refs) \
+                or meta.get("pov") == personaje_id
+            if not relacionada:
+                continue
+            try:
+                texto = (self._gestor.leer_documento(escena) or "").strip()
+            except Exception:
+                texto = ""
+            if not texto:
+                continue
+            bloque = f"[{escena.nombre}]\n{texto[:700]}"
+            if total + len(bloque) > max_total:
+                partes.append("[…]")
+                break
+            partes.append(bloque)
+            total += len(bloque)
+        return "\n\n".join(partes)
+
+    def _texto_de_item(self, item) -> str:
+        """Texto de un documento: del editor abierto si lo está, o del disco."""
+        loc = self._localizar_item_abierto(item.id)
+        if loc:
+            _panel, _num, indice = loc
+            editor = loc[0].widget(indice)
+            if editor is not None:
+                return editor.toPlainText()
+        try:
+            return self._gestor.leer_documento(item) or ""
+        except Exception:
+            return ""
+
+    def _al_accion_ia_explorador(self, accion: str, item) -> None:
+        """Despacha las acciones de dossier lanzadas desde el explorador."""
+        if accion == "sinopsis":
+            self._ia_sinopsis(item)
+        elif accion == "ficha":
+            self._ia_ficha(item)
+        elif accion == "coherencia":
+            self._ia_coherencia(item)
+        elif accion == "coherencia_cap":
+            self._ia_coherencia_capitulo(item)
+
+    def _ia_sinopsis(self, item=None) -> None:
+        if not self._config.ia_habilitada:
+            return
+        if item is None:
+            item = self._item_editor_activo()[1]
+        if not item:
+            self._mostrar_advertencia("Sin documento", "Abre o selecciona una escena o capítulo.")
+            return
+        if item.tipo not in (TipoElemento.ESCENA, TipoElemento.CAPITULO):
+            self._mostrar_advertencia(
+                "No aplicable", "La sinopsis se genera para escenas o capítulos.")
+            return
+        texto = self._texto_de_item(item).strip()
+        if not texto:
+            self._mostrar_advertencia("Vacío", "El documento no tiene texto.")
+            return
+        from ai.contexto import truncar
+        from ai.tareas import mensajes_sinopsis
+        from ui.dialogos.resultado_ia import DialogoResultadoIA
+        mensajes = mensajes_sinopsis(item.nombre, truncar(texto, 8000))
+        dialogo = DialogoResultadoIA(
+            self._proveedor_ia(), mensajes, truncar(texto, 4000),
+            titulo=f"Sinopsis: {item.nombre}",
+            acciones=[("aplicar", "Usar como resumen")],
+            etiqueta_original="Escena", etiqueta_sugerencia="Sinopsis propuesta",
+            parent=self)
+        if dialogo.exec() and dialogo.accion == "aplicar" and dialogo.texto_resultado.strip():
+            item.metadatos["resumen"] = dialogo.texto_resultado.strip()
+            self._persistir_metadatos()
+            self._panel_metadatos.mostrar_item(item)
+            self._barra_estado.mostrar_mensaje("Resumen actualizado con la sinopsis.", 3000)
+
+    def _ia_ficha(self, item=None) -> None:
+        if not self._config.ia_habilitada:
+            return
+        if item is None:
+            item = self._item_editor_activo()[1]
+        if not item or item.tipo not in (TipoElemento.PERSONAJE, TipoElemento.UBICACION):
+            self._mostrar_advertencia(
+                "No aplicable", "Selecciona o abre un personaje o una ubicación.")
+            return
+        from core.metadatos import etiqueta_tipo
+        from ai.contexto import truncar, ficha_a_texto
+        from ai.tareas import campos_ficha, mensajes_ficha, parsear_campos
+        from ui.dialogos.resultado_ia import DialogoResultadoIA
+
+        descripcion = self._texto_de_item(item).strip()
+        partes = [f"Ficha actual:\n{ficha_a_texto(item)}"]
+        if descripcion:
+            partes.append(f"Descripción / notas:\n{descripcion}")
+        if item.tipo == TipoElemento.PERSONAJE:
+            escenas = self._escenas_de_personaje(item.id, max_total=4000)
+            if escenas:
+                partes.append(f"Apariciones en escenas:\n{escenas}")
+        contexto = truncar("\n\n".join(partes), 8000)
+        campos = campos_ficha(item.tipo)
+        mensajes = mensajes_ficha(etiqueta_tipo(item.tipo), item.nombre, campos, contexto)
+        dialogo = DialogoResultadoIA(
+            self._proveedor_ia(), mensajes, ficha_a_texto(item),
+            titulo=f"Ficha sugerida: {item.nombre}",
+            acciones=[("aplicar", "Aplicar a campos vacíos")],
+            etiqueta_original="Ficha actual", etiqueta_sugerencia="Sugerencia",
+            parent=self)
+        if dialogo.exec() and dialogo.accion == "aplicar" and dialogo.texto_resultado.strip():
+            propuesto = parsear_campos(dialogo.texto_resultado, campos)
+            aplicados = 0
+            for clave, valor in propuesto.items():
+                actual = item.metadatos.get(clave)
+                if not (isinstance(actual, str) and actual.strip()):
+                    item.metadatos[clave] = valor
+                    aplicados += 1
+            if aplicados:
+                self._persistir_metadatos()
+                self._panel_metadatos.mostrar_item(item)
+                self._barra_estado.mostrar_mensaje(
+                    f"Ficha actualizada: {aplicados} campo(s) vacío(s) rellenado(s).", 4000)
+            else:
+                self._mostrar_advertencia(
+                    "Sin cambios",
+                    "No había campos vacíos que rellenar (los ya escritos se conservan).")
+
+    def _ia_coherencia(self, item=None) -> None:
+        if not self._config.ia_habilitada:
+            return
+        if item is None:
+            item = self._item_editor_activo()[1]
+        if not item or item.tipo != TipoElemento.PERSONAJE:
+            self._mostrar_advertencia(
+                "No aplicable", "Selecciona o abre un personaje para revisar su coherencia.")
+            return
+        from ai.contexto import truncar, ficha_a_texto
+        from ai.tareas import mensajes_coherencia
+        from ui.dialogos.resultado_ia import DialogoResultadoIA
+
+        escenas = self._escenas_de_personaje(item.id, max_total=6000)
+        if not escenas.strip():
+            self._mostrar_advertencia(
+                "Sin escenas",
+                "Este personaje no está vinculado a ninguna escena. Usa los campos "
+                "«Personajes presentes» o «Punto de vista» de las escenas.")
+            return
+        mensajes = mensajes_coherencia(item.nombre, ficha_a_texto(item), truncar(escenas, 8000))
+        dialogo = DialogoResultadoIA(
+            self._proveedor_ia(), mensajes, ficha_a_texto(item),
+            titulo=f"Coherencia: {item.nombre}",
+            acciones=[("notas", "Enviar a Notas")],
+            etiqueta_original="Ficha", etiqueta_sugerencia="Informe de coherencia",
+            parent=self)
+        if dialogo.exec() and dialogo.accion == "notas" and dialogo.texto_resultado.strip():
+            self._guardar_en_notas(
+                f"Coherencia de «{item.nombre}»\n\n{dialogo.texto_resultado.strip()}")
+
+    def _texto_de_capitulo(self, capitulo, max_total: int = 8000) -> str:
+        """Concatena el texto de las escenas de un capítulo, en orden."""
+        partes: list[str] = []
+        total = 0
+        for hijo in sorted(capitulo.hijos, key=lambda h: h.orden):
+            if hijo.tipo != TipoElemento.ESCENA:
+                continue
+            texto = self._texto_de_item(hijo).strip()
+            if not texto:
+                continue
+            bloque = f"[{hijo.nombre}]\n{texto}"
+            if total + len(bloque) > max_total:
+                partes.append("[…]")
+                break
+            partes.append(bloque)
+            total += len(bloque)
+        return "\n\n".join(partes)
+
+    def _ia_coherencia_capitulo(self, item=None) -> None:
+        if not self._config.ia_habilitada:
+            return
+        if item is None:
+            item = self._item_editor_activo()[1]
+        if not item or item.tipo != TipoElemento.CAPITULO:
+            self._mostrar_advertencia(
+                "No aplicable", "Selecciona un capítulo para revisar su coherencia.")
+            return
+        texto = self._texto_de_capitulo(item)
+        if not texto.strip():
+            self._mostrar_advertencia(
+                "Sin contenido", "El capítulo no tiene escenas con texto.")
+            return
+        from ai.tareas import mensajes_coherencia_capitulo
+        from ui.dialogos.resultado_ia import DialogoResultadoIA
+        mensajes = mensajes_coherencia_capitulo(item.nombre, texto)
+        dialogo = DialogoResultadoIA(
+            self._proveedor_ia(), mensajes, texto,
+            titulo=f"Coherencia del capítulo: {item.nombre}",
+            acciones=[("notas", "Enviar a Notas")],
+            etiqueta_original="Capítulo", etiqueta_sugerencia="Informe de coherencia",
+            parent=self)
+        if dialogo.exec() and dialogo.accion == "notas" and dialogo.texto_resultado.strip():
+            self._guardar_en_notas(
+                f"Coherencia del capítulo «{item.nombre}»\n\n{dialogo.texto_resultado.strip()}")
+
+    # ─── Guardar contenido generado en Notas ─────────────────────────────────
+
+    def _guardar_en_notas(self, contenido: str) -> None:
+        """Guarda el contenido como una nota nueva en «Notas e investigación».
+
+        La nota se crea de inmediato con un título provisional derivado del
+        propio texto; después, si el asistente de IA está disponible, se intenta
+        refinar el título en segundo plano. Así la nota siempre se guarda aunque
+        el modelo tarde o no esté disponible."""
+        from models.proyecto import ROL_NOTAS
+        if not self._gestor.hay_proyecto:
+            self._mostrar_advertencia("Sin proyecto", "Abre un proyecto primero.")
+            return
+        proyecto = self._gestor.proyecto_activo
+        notas = proyecto.carpeta_por_rol(ROL_NOTAS)
+        if notas is None:
+            self._mostrar_advertencia("Sin carpeta de notas",
+                                      "El proyecto no tiene la sección de Notas.")
+            return
+
+        titulo = self._titulo_provisional(contenido)
+        nota = self._gestor.crear_elemento(titulo, TipoElemento.NOTA, notas.id, "")
+        if not nota:
+            self._mostrar_advertencia("No se pudo guardar",
+                                      "No fue posible crear la nota.")
+            return
+        self._gestor.guardar_documento(nota, contenido)
+        self._explorador.refrescar()
+        self._aplicar_nombres_editores()
+        self._barra_estado.mostrar_mensaje(f"Guardado en Notas: «{titulo}».", 4000)
+
+        # Refinar el título con IA (opcional, en segundo plano).
+        if self._config.ia_habilitada:
+            try:
+                from ai.tareas import mensajes_titulo
+                from ai.servicio import TrabajadorIA
+                self._worker_titulo = TrabajadorIA(
+                    self._proveedor_ia(), mensajes_titulo(contenido[:2000]),
+                    max_tokens=48, parent=self)
+                self._worker_titulo.terminado.connect(
+                    lambda t, nid=nota.id: self._renombrar_nota_ia(nid, t))
+                self._worker_titulo.start()
+            except Exception:
+                pass
+
+    def _titulo_provisional(self, contenido: str) -> str:
+        """Título a partir de la primera línea con texto del contenido."""
+        for linea in (contenido or "").splitlines():
+            linea = linea.strip().lstrip("#").strip().strip('"«»').strip()
+            if linea:
+                return linea[:70]
+        return "Nota de IA"
+
+    def _renombrar_nota_ia(self, nota_id: str, titulo: str) -> None:
+        """Aplica el título generado por IA a una nota ya creada."""
+        titulo = (titulo or "").strip().strip('"«»').strip()
+        titulo = titulo.splitlines()[0][:70] if titulo else ""
+        if not titulo:
+            return
+        if self._gestor.renombrar_elemento(nota_id, titulo):
+            self._explorador.refrescar()
+            self._aplicar_nombres_editores()
+            self._barra_estado.mostrar_mensaje(f"Nota guardada como «{titulo}».", 4000)
+
+    def _ia_tormenta(self) -> None:
+        """Sugiere formas de continuar la historia a partir del punto actual."""
+        if not self._config.ia_habilitada:
+            return
+        if not self._gestor.hay_proyecto:
+            self._mostrar_advertencia("Sin proyecto", "Abre un proyecto primero.")
+            return
+        from ai.contexto import truncar
+        from ui.dialogos.tormenta_ia import DialogoTormenta
+
+        proyecto = self._gestor.proyecto_activo
+        lineas = []
+        for escena in proyecto.escenas_en_orden():
+            resumen = (escena.metadatos or {}).get("resumen", "")
+            lineas.append(f"- {escena.nombre}" + (f": {resumen}" if resumen else ""))
+        esquema = "\n".join(lineas) or "(todavía no hay escenas)"
+        tramas = ", ".join(t.nombre for t in proyecto.tramas) or "(sin tramas definidas)"
+
+        partes = [f"Tramas: {tramas}", f"Escenas hasta ahora:\n{esquema}"]
+        foco = ""
+        editor, item = self._item_editor_activo()
+        if item is not None and item.tipo == TipoElemento.ESCENA:
+            texto = self._texto_de_item(item).strip()
+            if texto:
+                partes.append(f"Escena actual «{item.nombre}»:\n{truncar(texto, 2000)}")
+                foco = f"cómo continuar tras «{item.nombre}»"
+        contexto = truncar("\n\n".join(partes), 8000)
+
+        dialogo = DialogoTormenta(self._proveedor_ia(), contexto, foco, parent=self)
+        if not dialogo.exec() or not dialogo.texto_resultado.strip():
+            return
+        resultado = dialogo.texto_resultado.strip()
+        if dialogo.accion == "insertar":
+            destino = editor or self._editor_activo()
+            if destino is not None:
+                cur = destino.textCursor()
+                cur.movePosition(QTextCursor.MoveOperation.EndOfBlock)
+                cur.insertText("\n\n" + resultado + "\n")
+                destino.setTextCursor(cur)
+                self._barra_estado.mostrar_mensaje("Idea insertada en el editor.", 3000)
+        elif dialogo.accion == "notas":
+            self._guardar_en_notas(f"Tormenta de ideas\n\n{resultado}")
 
     # ─── Cierre de la ventana ─────────────────────────────────────────────────
 

@@ -7,7 +7,7 @@ from pathlib import Path
 from typing import Optional
 
 from PySide6.QtCore import Qt, Signal
-from PySide6.QtGui import QAction
+from PySide6.QtGui import QAction, QColor, QIcon, QPainter, QPen, QPixmap
 from PySide6.QtWidgets import (
     QMenu,
     QMessageBox,
@@ -19,6 +19,57 @@ from PySide6.QtWidgets import (
 
 from editors.editor_markdown import EditorMarkdown
 from models.documento import ItemProyecto
+
+
+# Supermuestreo fijo (4×): un origen de alta resolución se reescala con suavidad
+# para cualquier densidad de pantalla, así el aspa se ve nítida en monitores
+# grandes / de alta densidad.
+_SUPERMUESTREO = 4
+
+
+def _icono_cerrar(color_hex: str, lado: int = 18) -> QIcon:
+    """Dibuja una «×» centrada y nítida para el botón de cerrar pestaña."""
+    s = _SUPERMUESTREO
+    px = lado * s
+    pm = QPixmap(px, px)
+    pm.fill(Qt.GlobalColor.transparent)
+    painter = QPainter(pm)
+    painter.setRenderHint(QPainter.RenderHint.Antialiasing)
+    pluma = QPen(QColor(color_hex))
+    pluma.setWidthF(1.6 * s)
+    pluma.setCapStyle(Qt.PenCapStyle.RoundCap)
+    painter.setPen(pluma)
+    m = 5 * s          # margen del aspa
+    painter.drawLine(m, m, px - m, px - m)
+    painter.drawLine(px - m, m, m, px - m)
+    painter.end()
+    pm.setDevicePixelRatio(float(s))
+    return QIcon(pm)
+
+
+class _BotonCerrarPestana(QPushButton):
+    """Botón «×» con aspa dibujada (no glifo de texto) para que quede centrada
+    y nítida, y que se vuelve blanca al pasar el ratón sobre el fondo rojo."""
+
+    def __init__(self, parent: Optional[QWidget] = None) -> None:
+        super().__init__(parent)
+        self.setObjectName("BotonCerrarPestana")
+        self.setFixedSize(18, 18)
+        self.setToolTip("Cerrar")
+        self._color_normal = "#8A8F98"
+        self._color_hover = "#FFFFFF"
+        self._aplicar_icono(self._color_normal)
+
+    def _aplicar_icono(self, color_hex: str) -> None:
+        self.setIcon(_icono_cerrar(color_hex))
+
+    def enterEvent(self, evento) -> None:  # type: ignore[override]
+        self._aplicar_icono(self._color_hover)
+        super().enterEvent(evento)
+
+    def leaveEvent(self, evento) -> None:  # type: ignore[override]
+        self._aplicar_icono(self._color_normal)
+        super().leaveEvent(evento)
 
 
 class PanelPestanas(QTabWidget):
@@ -33,6 +84,8 @@ class PanelPestanas(QTabWidget):
     documento_modificado   = Signal(str, bool)  # (nombre_archivo, modificado)
     palabras_actualizadas  = Signal(int)        # conteo de palabras del editor activo
     mover_a_panel          = Signal(object, int) # (ItemProyecto, panel_destino 1|2|3)
+    ia_reescribir_solicitada = Signal(str)       # id de intención de reescritura (IA)
+    ia_tormenta_solicitada   = Signal()          # solicitar tormenta de ideas (IA)
 
     def __init__(self, parent: Optional[QWidget] = None) -> None:
         super().__init__(parent)
@@ -54,12 +107,14 @@ class PanelPestanas(QTabWidget):
         self.tabBar().setContextMenuPolicy(Qt.ContextMenuPolicy.CustomContextMenu)
         self.tabBar().customContextMenuRequested.connect(self._menu_contextual_pestana)
 
+    def establecer_modo_concentracion(self, activo: bool) -> None:
+        """En modo concentración se oculta la barra de pestañas: solo se ve el
+        contenido del documento activo."""
+        self.tabBar().setVisible(not activo)
+
     def _crear_boton_cierre(self, indice: int) -> None:
-        """Instala un QPushButton '×' siempre visible como botón de cierre de la pestaña."""
-        btn = QPushButton("×")
-        btn.setObjectName("BotonCerrarPestana")
-        btn.setFixedSize(18, 18)
-        btn.setToolTip("Cerrar")
+        """Instala un botón «×» (aspa dibujada) como cierre de la pestaña."""
+        btn = _BotonCerrarPestana()
         btn.clicked.connect(lambda: self._on_click_cerrar(btn))
         self.tabBar().setTabButton(indice, QTabBar.ButtonPosition.RightSide, btn)
 
@@ -91,6 +146,8 @@ class PanelPestanas(QTabWidget):
         )
         editor.palabras_cambiadas.connect(self._al_cambiar_palabras)
         editor.foco_recibido.connect(lambda ed=editor: self._al_foco_editor(ed))
+        editor.ia_reescribir.connect(self.ia_reescribir_solicitada)
+        editor.ia_tormenta.connect(self.ia_tormenta_solicitada)
 
         editor.ruta_archivo = item.ruta_relativa
         editor.nombre_archivo = item.nombre

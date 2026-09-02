@@ -84,7 +84,7 @@ class PanelMetadatos(QWidget):
         cont_layout.addWidget(self._lbl_titulo)
 
         self._lbl_tipo = QLabel()
-        self._lbl_tipo.setStyleSheet("font-size: 11px; color: palette(mid);")
+        self._lbl_tipo.setStyleSheet("font-size: 11px; color: #8A8F98;")
         cont_layout.addWidget(self._lbl_tipo)
 
         # Mensaje cuando no hay metadatos
@@ -93,7 +93,7 @@ class PanelMetadatos(QWidget):
             "para ver y editar sus detalles aquí."
         )
         self._lbl_vacio.setWordWrap(True)
-        self._lbl_vacio.setStyleSheet("color: palette(mid);")
+        self._lbl_vacio.setStyleSheet("color: #8A8F98;")
         cont_layout.addWidget(self._lbl_vacio)
 
         # Formulario dinámico

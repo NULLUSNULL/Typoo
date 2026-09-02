@@ -115,8 +115,9 @@ class GestorProyectos:
             ruta_absoluta = proyecto.ruta / ruta_relativa
             contador += 1
 
-        # Crear el archivo en disco con plantilla inicial
+        # Crear el archivo en disco con plantilla inicial (asegurando la carpeta)
         plantilla = self._plantilla_inicial(nombre, tipo)
+        ruta_absoluta.parent.mkdir(parents=True, exist_ok=True)
         ruta_absoluta.write_text(plantilla, encoding="utf-8")
 
         # Crear el nodo en el árbol
@@ -223,6 +224,7 @@ class GestorProyectos:
             return False
         try:
             ruta = self._proyecto_activo.ruta / item.ruta_relativa
+            ruta.parent.mkdir(parents=True, exist_ok=True)
             ruta.write_text(contenido, encoding="utf-8")
             return True
         except OSError as e:

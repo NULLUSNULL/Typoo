@@ -11,6 +11,9 @@ from typing import Optional
 from PySide6.QtCore import Qt, QStringListModel, Signal
 from PySide6.QtGui import (
     QFont,
+    QIcon,
+    QPainter,
+    QPixmap,
     QTextBlockFormat,
     QTextCursor,
     QWheelEvent,
@@ -51,6 +54,8 @@ class EditorMarkdown(QPlainTextEdit):
     modificado_cambiado = Signal(bool)      # Emite True cuando hay cambios sin guardar
     foco_recibido = Signal()                # Emite cuando el editor gana el foco
     tamano_zoom_cambiado = Signal(int)      # Emite el nuevo tamaño tras zoom (Ctrl+rueda)
+    ia_reescribir = Signal(str)             # Emite el id de intención de reescritura (IA)
+    ia_tormenta = Signal()                  # Solicita la tormenta de ideas (IA)
 
     def __init__(self, parent: Optional[QWidget] = None) -> None:
         super().__init__(parent)
@@ -462,6 +467,50 @@ class EditorMarkdown(QPlainTextEdit):
                 return
         super().keyPressEvent(evento)
         self._actualizar_completador()
+
+    # ─── Menú contextual (acciones de IA sobre la selección) ─────────────────
+
+    def _icono_emoji(self, emoji: str) -> QIcon:
+        """Convierte un emoji en un QIcon para que se alinee en la columna de
+        iconos del menú contextual (como el resto de acciones)."""
+        pm = QPixmap(18, 18)
+        pm.fill(Qt.GlobalColor.transparent)
+        painter = QPainter(pm)
+        fuente = self.font()
+        fuente.setPointSize(12)
+        painter.setFont(fuente)
+        painter.drawText(pm.rect(), Qt.AlignmentFlag.AlignCenter, emoji)
+        painter.end()
+        return QIcon(pm)
+
+    def contextMenuEvent(self, evento) -> None:  # type: ignore[override]
+        menu = self.createStandardContextMenu()
+        try:
+            if self._config.ia_habilitada:
+                menu.addSeparator()
+                if self.textCursor().hasSelection():
+                    ac_corregir = menu.addAction("Corregir ortografía y gramática")
+                    ac_corregir.setIcon(self._icono_emoji("✅"))
+                    ac_corregir.triggered.connect(
+                        lambda checked=False: self.ia_reescribir.emit("correccion"))
+                    from ai.tareas import INTENCIONES_REESCRITURA
+                    _emoji = {"pulir": "✨", "condensar": "✂️", "expandir": "➕",
+                              "formal": "🎩", "coloquial": "💬", "mostrar": "🎬",
+                              "dialogo": "🗨️"}
+                    submenu = menu.addMenu("Reescribir con IA")
+                    submenu.setIcon(self._icono_emoji("✍️"))
+                    for intencion in INTENCIONES_REESCRITURA:
+                        accion = submenu.addAction(intencion.etiqueta)
+                        accion.setIcon(self._icono_emoji(_emoji.get(intencion.id, "•")))
+                        accion.triggered.connect(
+                            lambda checked=False, i=intencion.id: self.ia_reescribir.emit(i))
+                # No requiere selección: ayuda a continuar desde el punto actual.
+                accion_ideas = menu.addAction("Tormenta de ideas: ¿cómo continuar?…")
+                accion_ideas.setIcon(self._icono_emoji("💡"))
+                accion_ideas.triggered.connect(lambda checked=False: self.ia_tormenta.emit())
+        except Exception:
+            pass
+        menu.exec(evento.globalPos())
 
     # ─── Zoom con la rueda del ratón ─────────────────────────────────────────
 

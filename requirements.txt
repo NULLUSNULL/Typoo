@@ -15,3 +15,9 @@ reportlab>=4.1.0         # Exportación a PDF
 # ── Empaquetado (para distribución) ──────────────────────────────────────────
 # pyinstaller>=6.0.0    # Descomenta para empaquetar con PyInstaller
 # nuitka>=2.0           # Descomenta para compilar con Nuitka
+
+# ── Asistente de IA (opcional) ────────────────────────────────────────────────
+# La IA es opt-in. Los modos de nube (OpenAI/Anthropic/NVIDIA/Groq/Mistral) y
+# local (Ollama/LM Studio) no requieren dependencias adicionales. Solo el modo
+# «embebido» (modelos GGUF ejecutados en el equipo) necesita:
+# llama-cpp-python>=0.2.90   # Descomenta para usar modelos embebidos

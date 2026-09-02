@@ -18,6 +18,7 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
+from core.configuracion import Configuracion
 from core.constantes import TipoElemento
 from core.logger import logger
 from models.documento import ItemProyecto
@@ -53,18 +54,29 @@ COLOR_POR_ESTADO: dict[str, str] = {
 _CACHE_ICONO_ESTADO: dict[str, QIcon] = {}
 
 
+# Supermuestreo fijo: el punto se dibuja a 4× su tamaño lógico. Un único origen
+# de alta resolución se reescala con suavidad para CUALQUIER densidad de pantalla
+# (hasta 4×), así que se ve nítido aunque se mueva la ventana a un monitor mayor.
+_SUPERMUESTREO = 4
+
+
 def _icono_estado(color_hex: str) -> QIcon:
-    """Devuelve (cacheado) un icono de punto de color para el estado."""
+    """Devuelve (cacheado) un icono de punto de color para el estado, dibujado a
+    alta resolución para que no se vea borroso en pantallas de alta densidad."""
     icono = _CACHE_ICONO_ESTADO.get(color_hex)
     if icono is None:
-        pm = QPixmap(12, 12)
+        lado = 12
+        px = lado * _SUPERMUESTREO
+        pm = QPixmap(px, px)
         pm.fill(Qt.GlobalColor.transparent)
         painter = QPainter(pm)
         painter.setRenderHint(QPainter.RenderHint.Antialiasing)
         painter.setPen(Qt.PenStyle.NoPen)
         painter.setBrush(QColor(color_hex))
-        painter.drawEllipse(1, 1, 10, 10)
+        margen = 1 * _SUPERMUESTREO
+        painter.drawEllipse(margen, margen, px - 2 * margen, px - 2 * margen)
         painter.end()
+        pm.setDevicePixelRatio(float(_SUPERMUESTREO))
         icono = QIcon(pm)
         _CACHE_ICONO_ESTADO[color_hex] = icono
     return icono
@@ -113,6 +125,7 @@ class ExploradorProyecto(QWidget):
     elemento_creado       = Signal(object, str) # (ItemProyecto nuevo, padre_id)
     elemento_movido       = Signal(str)         # id del elemento reordenado/movido
     abrir_en_panel        = Signal(object, int) # (ItemProyecto, número de panel 1|2|3)
+    accion_ia_solicitada  = Signal(str, object) # (acción: sinopsis|ficha|coherencia, ItemProyecto)
 
     def __init__(self, parent: Optional[QWidget] = None) -> None:
         super().__init__(parent)
@@ -337,8 +350,9 @@ class ExploradorProyecto(QWidget):
                     self._agregar_acciones_crear(menu, item)
                     menu.addSeparator()
 
-                # Documentos: opción para abrir en área específica
-                if item.ruta_relativa:
+                # Documentos: opción para abrir en área específica.
+                # Las carpetas/contenedores no son documentos: no la ofrecemos.
+                if item.ruta_relativa and not item.es_contenedor():
                     submenu_areas = menu.addMenu("Abrir en área")
                     for num, etiqueta in [(1, "Área 1"), (2, "Área 2"), (3, "Área 3")]:
                         ac = QAction(etiqueta, self)
@@ -357,6 +371,8 @@ class ExploradorProyecto(QWidget):
                     accion_eliminar = QAction("Eliminar", self)
                     accion_eliminar.triggered.connect(lambda: self._eliminar(item))
                     menu.addAction(accion_eliminar)
+
+                self._agregar_acciones_ia(menu, item)
         else:
             # Clic en área vacía
             if self._proyecto:
@@ -364,6 +380,30 @@ class ExploradorProyecto(QWidget):
 
         if not menu.isEmpty():
             menu.exec(self._arbol.viewport().mapToGlobal(posicion))
+
+    def _agregar_acciones_ia(self, menu: QMenu, item: ItemProyecto) -> None:
+        """Añade acciones de IA (dossier) según el tipo, si la IA está habilitada."""
+        if not Configuracion().ia_habilitada:
+            return
+        acciones: list[tuple[str, str]] = []
+        if item.tipo in (TipoElemento.ESCENA, TipoElemento.CAPITULO):
+            acciones.append(("sinopsis", "Generar sinopsis con IA"))
+        if item.tipo == TipoElemento.CAPITULO:
+            acciones.append(("coherencia_cap", "Revisar coherencia con IA"))
+        if item.tipo == TipoElemento.PERSONAJE:
+            acciones.append(("ficha", "Sugerir ficha con IA"))
+            acciones.append(("coherencia", "Revisar coherencia con IA"))
+        elif item.tipo == TipoElemento.UBICACION:
+            acciones.append(("ficha", "Sugerir ficha con IA"))
+        if not acciones:
+            return
+        menu.addSeparator()
+        for accion_id, etiqueta in acciones:
+            ac = QAction(etiqueta, self)
+            ac.triggered.connect(
+                lambda checked=False, a=accion_id, it=item:
+                    self.accion_ia_solicitada.emit(a, it))
+            menu.addAction(ac)
 
     def _agregar_acciones_crear(self, menu: QMenu, padre: ItemProyecto) -> None:
         """
