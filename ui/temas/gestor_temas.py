@@ -117,6 +117,9 @@ QWidget {{
     color: {texto};
     font-size: 13px;
 }}
+/* Las etiquetas no pintan fondo: heredan el de su barra/panel y así se evita el
+   efecto «parche» (recuadros de otro tono en la barra de estado, banner, etc.). */
+QLabel {{ background: transparent; }}
 QToolTip {{
     background-color: {elevado};
     color: {texto};
@@ -329,7 +332,7 @@ QLabel#CabeceraPanel {{
 }}
 
 /* ── Cuadros de texto / entradas ──────────────────────────────────── */
-QLineEdit, QTextEdit {{
+QLineEdit, QTextEdit, QPlainTextEdit {{
     background-color: {elevado};
     color: {texto};
     border: 1px solid {elevado2};
@@ -338,7 +341,7 @@ QLineEdit, QTextEdit {{
     selection-background-color: {sel};
     selection-color: #FFFFFF;
 }}
-QLineEdit:focus, QTextEdit:focus {{ border-color: {acento}; }}
+QLineEdit:focus, QTextEdit:focus, QPlainTextEdit:focus {{ border-color: {acento}; }}
 
 /* La vista previa es un QTextBrowser a sangre completa, sin borde de input */
 QTextBrowser {{
@@ -528,6 +531,12 @@ def _crear_palette(c: dict):
     p.setColor(R.Highlight, QColor(c["acento"]))
     p.setColor(R.HighlightedText, QColor("#FFFFFF"))
     p.setColor(R.Link, QColor(c["acento"]))
+    # Grises intermedios (los usa p. ej. «palette(mid)» del panel de detalles).
+    p.setColor(R.Mid, QColor(c["texto3"]))
+    p.setColor(R.Midlight, QColor(c["borde"]))
+    p.setColor(R.Dark, QColor(c["borde"]))
+    p.setColor(R.Light, QColor(c["alt"]))
+    p.setColor(R.Shadow, QColor("#000000"))
     for role in (R.WindowText, R.Text, R.ButtonText):
         p.setColor(G.Disabled, role, QColor(c["texto3"]))
     return p

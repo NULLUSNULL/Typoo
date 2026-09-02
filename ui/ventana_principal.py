@@ -142,8 +142,8 @@ class VentanaPrincipal(QMainWindow):
         self._barra_estado = BarraEstado(self)
         self.setStatusBar(self._barra_estado)
 
-    def _crear_barra_titulo(self) -> None:
-        """Barra superior con el nombre de la app (e icono de IA si está activa)."""
+    def _crear_banner(self) -> QWidget:
+        """Barra full-width con «Typoo» centrado (e icono de IA si está activa)."""
         banner = QWidget()
         banner.setObjectName("BannerApp")
         bl = QHBoxLayout(banner)
@@ -163,25 +163,23 @@ class VentanaPrincipal(QMainWindow):
         self._icono_ia.hide()
         bl.addWidget(self._icono_ia)
         bl.addStretch(1)
-
-        dock = QDockWidget("Typoo", self)
-        dock.setObjectName("DockBanner")
-        dock.setWidget(banner)
-        dock.setFeatures(QDockWidget.DockWidgetFeature.NoDockWidgetFeatures)
-        dock.setAllowedAreas(Qt.DockWidgetArea.TopDockWidgetArea)
-        dock.setTitleBarWidget(QWidget())
-        self.addDockWidget(Qt.DockWidgetArea.TopDockWidgetArea, dock)
-        self._dock_banner = dock
+        return banner
 
     def _crear_barra_herramientas(self) -> None:
-        """Crea e instala la barra de herramientas de formato."""
-        self._crear_barra_titulo()
-
+        """Instala, en un único dock superior, el banner del nombre de la app
+        encima de la barra de formato (ambos a todo lo ancho)."""
         self._barra_formato = BarraHerramientas()
         self._barra_formato.setObjectName("BarraHerramientas")
 
+        contenedor = QWidget()
+        vbox = QVBoxLayout(contenedor)
+        vbox.setContentsMargins(0, 0, 0, 0)
+        vbox.setSpacing(0)
+        vbox.addWidget(self._crear_banner())
+        vbox.addWidget(self._barra_formato)
+
         dock = QDockWidget("Formato", self)
-        dock.setWidget(self._barra_formato)
+        dock.setWidget(contenedor)
         dock.setObjectName("DockFormato")
         dock.setFeatures(
             QDockWidget.DockWidgetFeature.DockWidgetMovable |
@@ -193,8 +191,6 @@ class VentanaPrincipal(QMainWindow):
         )
         dock.setTitleBarWidget(QWidget())  # Ocultar la barra de título del dock
         self.addDockWidget(Qt.DockWidgetArea.TopDockWidgetArea, dock)
-        # La barra de formato queda debajo del banner del nombre de la app.
-        self.splitDockWidget(self._dock_banner, dock, Qt.Orientation.Vertical)
         self._dock_formato = dock
         self._actualizar_banner_ia()
 
