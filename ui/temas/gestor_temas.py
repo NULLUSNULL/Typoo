@@ -128,8 +128,8 @@ QToolTip {{
     padding: 4px 8px;
 }}
 
-/* ── Banner con el nombre de la aplicación ─────────────────────────── */
-QWidget#BannerApp {{
+/* ── Barra de título propia de la app ──────────────────────────────── */
+QWidget#BarraTitulo {{
     background-color: {barra};
     border-bottom: 1px solid {borde};
 }}
@@ -137,6 +137,15 @@ QLabel#BannerTitulo {{
     color: {texto};
     letter-spacing: 0.5px;
 }}
+QToolButton#BotonVentana, QToolButton#BotonCerrarVentana {{
+    background: transparent;
+    border: none;
+    border-radius: 5px;
+}}
+QToolButton#BotonVentana:hover {{ background-color: {hover}; }}
+QToolButton#BotonVentana:pressed {{ background-color: {sel}; }}
+QToolButton#BotonCerrarVentana:hover {{ background-color: {rojo}; }}
+QToolButton#BotonCerrarVentana:pressed {{ background-color: {rojo}; }}
 
 /* ── Barra de menú ─────────────────────────────────────────────────── */
 QMenuBar {{
