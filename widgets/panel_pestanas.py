@@ -9,7 +9,6 @@ from typing import Optional
 from PySide6.QtCore import Qt, Signal
 from PySide6.QtGui import QAction, QColor, QIcon, QPainter, QPen, QPixmap
 from PySide6.QtWidgets import (
-    QApplication,
     QMenu,
     QMessageBox,
     QPushButton,
@@ -22,28 +21,29 @@ from editors.editor_markdown import EditorMarkdown
 from models.documento import ItemProyecto
 
 
+# Supermuestreo fijo (4×): un origen de alta resolución se reescala con suavidad
+# para cualquier densidad de pantalla, así el aspa se ve nítida en monitores
+# grandes / de alta densidad.
+_SUPERMUESTREO = 4
+
+
 def _icono_cerrar(color_hex: str, lado: int = 18) -> QIcon:
-    """Dibuja una «×» perfectamente centrada y nítida (según densidad de la
-    pantalla) para el botón de cerrar pestaña."""
-    pantalla = QApplication.primaryScreen()
-    try:
-        dpr = float(pantalla.devicePixelRatio()) if pantalla else 1.0
-    except Exception:
-        dpr = 1.0
-    px = max(1, round(lado * dpr))
+    """Dibuja una «×» centrada y nítida para el botón de cerrar pestaña."""
+    s = _SUPERMUESTREO
+    px = lado * s
     pm = QPixmap(px, px)
     pm.fill(Qt.GlobalColor.transparent)
     painter = QPainter(pm)
     painter.setRenderHint(QPainter.RenderHint.Antialiasing)
     pluma = QPen(QColor(color_hex))
-    pluma.setWidthF(1.6 * dpr)
+    pluma.setWidthF(1.6 * s)
     pluma.setCapStyle(Qt.PenCapStyle.RoundCap)
     painter.setPen(pluma)
-    m = round(5 * dpr)          # margen del aspa
+    m = 5 * s          # margen del aspa
     painter.drawLine(m, m, px - m, px - m)
     painter.drawLine(px - m, m, m, px - m)
     painter.end()
-    pm.setDevicePixelRatio(dpr)
+    pm.setDevicePixelRatio(float(s))
     return QIcon(pm)
 
 

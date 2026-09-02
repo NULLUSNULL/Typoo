@@ -67,8 +67,7 @@ PROVEEDORES: dict[str, InfoProveedor] = {
     "embebido": InfoProveedor(
         "embebido", "Embebido (descargable)", "embebido", "embebido",
         "", False, "",
-        "Modelos que se ejecutan en tu equipo, sin conexión. "
-        "Requiere la dependencia llama-cpp-python."),
+        ""),
     "apple": InfoProveedor(
         "apple", "Apple Foundation (macOS)", "apple", "apple",
         "", False, "",

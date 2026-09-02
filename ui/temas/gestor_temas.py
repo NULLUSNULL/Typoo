@@ -299,9 +299,8 @@ QPushButton#BotonCerrarPestana {{
     color: {texto3};
     border: none;
     border-radius: 9px;
-    font-size: 14px;
-    font-weight: bold;
     padding: 0px;
+    margin-right: 6px;
 }}
 QPushButton#BotonCerrarPestana:hover {{ background-color: {rojo}; color: #FFFFFF; }}
 QPushButton#BotonCerrarPestana:pressed {{ background-color: {rojo}; color: #FFFFFF; }}

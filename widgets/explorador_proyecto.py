@@ -9,7 +9,6 @@ from PySide6.QtCore import Qt, Signal
 from PySide6.QtGui import QAction, QColor, QIcon, QPainter, QPixmap
 from PySide6.QtWidgets import (
     QAbstractItemView,
-    QApplication,
     QInputDialog,
     QMenu,
     QMessageBox,
@@ -55,39 +54,31 @@ COLOR_POR_ESTADO: dict[str, str] = {
 _CACHE_ICONO_ESTADO: dict[str, QIcon] = {}
 
 
-def _dpr() -> float:
-    """Factor de escala de la pantalla (device pixel ratio), para dibujar
-    iconos nítidos en pantallas grandes / de alta densidad."""
-    pantalla = QApplication.primaryScreen()
-    try:
-        return float(pantalla.devicePixelRatio()) if pantalla else 1.0
-    except Exception:
-        return 1.0
+# Supermuestreo fijo: el punto se dibuja a 4× su tamaño lógico. Un único origen
+# de alta resolución se reescala con suavidad para CUALQUIER densidad de pantalla
+# (hasta 4×), así que se ve nítido aunque se mueva la ventana a un monitor mayor.
+_SUPERMUESTREO = 4
 
 
 def _icono_estado(color_hex: str) -> QIcon:
-    """Devuelve (cacheado) un icono de punto de color para el estado.
-
-    El punto se dibuja a la resolución real de la pantalla y se marca con su
-    devicePixelRatio para que no se vea borroso en pantallas de alta densidad."""
-    dpr = _dpr()
-    clave = f"{color_hex}@{dpr:.2f}"
-    icono = _CACHE_ICONO_ESTADO.get(clave)
+    """Devuelve (cacheado) un icono de punto de color para el estado, dibujado a
+    alta resolución para que no se vea borroso en pantallas de alta densidad."""
+    icono = _CACHE_ICONO_ESTADO.get(color_hex)
     if icono is None:
         lado = 12
-        px = max(1, round(lado * dpr))
+        px = lado * _SUPERMUESTREO
         pm = QPixmap(px, px)
         pm.fill(Qt.GlobalColor.transparent)
         painter = QPainter(pm)
         painter.setRenderHint(QPainter.RenderHint.Antialiasing)
         painter.setPen(Qt.PenStyle.NoPen)
         painter.setBrush(QColor(color_hex))
-        margen = round(1 * dpr)
+        margen = 1 * _SUPERMUESTREO
         painter.drawEllipse(margen, margen, px - 2 * margen, px - 2 * margen)
         painter.end()
-        pm.setDevicePixelRatio(dpr)
+        pm.setDevicePixelRatio(float(_SUPERMUESTREO))
         icono = QIcon(pm)
-        _CACHE_ICONO_ESTADO[clave] = icono
+        _CACHE_ICONO_ESTADO[color_hex] = icono
     return icono
 
 
@@ -359,8 +350,9 @@ class ExploradorProyecto(QWidget):
                     self._agregar_acciones_crear(menu, item)
                     menu.addSeparator()
 
-                # Documentos: opción para abrir en área específica
-                if item.ruta_relativa:
+                # Documentos: opción para abrir en área específica.
+                # Las carpetas/contenedores no son documentos: no la ofrecemos.
+                if item.ruta_relativa and not item.es_contenedor():
                     submenu_areas = menu.addMenu("Abrir en área")
                     for num, etiqueta in [(1, "Área 1"), (2, "Área 2"), (3, "Área 3")]:
                         ac = QAction(etiqueta, self)

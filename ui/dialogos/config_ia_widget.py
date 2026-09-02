@@ -155,6 +155,7 @@ class WidgetConfigIA(QWidget):
             self._actualizar_label_embebido()
 
         self._lbl_ayuda.setText(info.ayuda)
+        self._lbl_ayuda.setVisible(bool(info.ayuda))
         self._lbl_estado.setText("")
 
     # ─── Embebido ──────────────────────────────────────────────────────────────
