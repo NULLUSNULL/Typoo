@@ -9,6 +9,7 @@ from PySide6.QtCore import Qt, Signal
 from PySide6.QtGui import QAction, QColor, QIcon, QPainter, QPixmap
 from PySide6.QtWidgets import (
     QAbstractItemView,
+    QApplication,
     QInputDialog,
     QMenu,
     QMessageBox,
@@ -54,20 +55,39 @@ COLOR_POR_ESTADO: dict[str, str] = {
 _CACHE_ICONO_ESTADO: dict[str, QIcon] = {}
 
 
+def _dpr() -> float:
+    """Factor de escala de la pantalla (device pixel ratio), para dibujar
+    iconos nítidos en pantallas grandes / de alta densidad."""
+    pantalla = QApplication.primaryScreen()
+    try:
+        return float(pantalla.devicePixelRatio()) if pantalla else 1.0
+    except Exception:
+        return 1.0
+
+
 def _icono_estado(color_hex: str) -> QIcon:
-    """Devuelve (cacheado) un icono de punto de color para el estado."""
-    icono = _CACHE_ICONO_ESTADO.get(color_hex)
+    """Devuelve (cacheado) un icono de punto de color para el estado.
+
+    El punto se dibuja a la resolución real de la pantalla y se marca con su
+    devicePixelRatio para que no se vea borroso en pantallas de alta densidad."""
+    dpr = _dpr()
+    clave = f"{color_hex}@{dpr:.2f}"
+    icono = _CACHE_ICONO_ESTADO.get(clave)
     if icono is None:
-        pm = QPixmap(12, 12)
+        lado = 12
+        px = max(1, round(lado * dpr))
+        pm = QPixmap(px, px)
         pm.fill(Qt.GlobalColor.transparent)
         painter = QPainter(pm)
         painter.setRenderHint(QPainter.RenderHint.Antialiasing)
         painter.setPen(Qt.PenStyle.NoPen)
         painter.setBrush(QColor(color_hex))
-        painter.drawEllipse(1, 1, 10, 10)
+        margen = round(1 * dpr)
+        painter.drawEllipse(margen, margen, px - 2 * margen, px - 2 * margen)
         painter.end()
+        pm.setDevicePixelRatio(dpr)
         icono = QIcon(pm)
-        _CACHE_ICONO_ESTADO[color_hex] = icono
+        _CACHE_ICONO_ESTADO[clave] = icono
     return icono
 
 

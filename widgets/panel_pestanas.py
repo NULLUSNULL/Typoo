@@ -7,8 +7,9 @@ from pathlib import Path
 from typing import Optional
 
 from PySide6.QtCore import Qt, Signal
-from PySide6.QtGui import QAction
+from PySide6.QtGui import QAction, QColor, QIcon, QPainter, QPen, QPixmap
 from PySide6.QtWidgets import (
+    QApplication,
     QMenu,
     QMessageBox,
     QPushButton,
@@ -19,6 +20,56 @@ from PySide6.QtWidgets import (
 
 from editors.editor_markdown import EditorMarkdown
 from models.documento import ItemProyecto
+
+
+def _icono_cerrar(color_hex: str, lado: int = 18) -> QIcon:
+    """Dibuja una «×» perfectamente centrada y nítida (según densidad de la
+    pantalla) para el botón de cerrar pestaña."""
+    pantalla = QApplication.primaryScreen()
+    try:
+        dpr = float(pantalla.devicePixelRatio()) if pantalla else 1.0
+    except Exception:
+        dpr = 1.0
+    px = max(1, round(lado * dpr))
+    pm = QPixmap(px, px)
+    pm.fill(Qt.GlobalColor.transparent)
+    painter = QPainter(pm)
+    painter.setRenderHint(QPainter.RenderHint.Antialiasing)
+    pluma = QPen(QColor(color_hex))
+    pluma.setWidthF(1.6 * dpr)
+    pluma.setCapStyle(Qt.PenCapStyle.RoundCap)
+    painter.setPen(pluma)
+    m = round(5 * dpr)          # margen del aspa
+    painter.drawLine(m, m, px - m, px - m)
+    painter.drawLine(px - m, m, m, px - m)
+    painter.end()
+    pm.setDevicePixelRatio(dpr)
+    return QIcon(pm)
+
+
+class _BotonCerrarPestana(QPushButton):
+    """Botón «×» con aspa dibujada (no glifo de texto) para que quede centrada
+    y nítida, y que se vuelve blanca al pasar el ratón sobre el fondo rojo."""
+
+    def __init__(self, parent: Optional[QWidget] = None) -> None:
+        super().__init__(parent)
+        self.setObjectName("BotonCerrarPestana")
+        self.setFixedSize(18, 18)
+        self.setToolTip("Cerrar")
+        self._color_normal = "#8A8F98"
+        self._color_hover = "#FFFFFF"
+        self._aplicar_icono(self._color_normal)
+
+    def _aplicar_icono(self, color_hex: str) -> None:
+        self.setIcon(_icono_cerrar(color_hex))
+
+    def enterEvent(self, evento) -> None:  # type: ignore[override]
+        self._aplicar_icono(self._color_hover)
+        super().enterEvent(evento)
+
+    def leaveEvent(self, evento) -> None:  # type: ignore[override]
+        self._aplicar_icono(self._color_normal)
+        super().leaveEvent(evento)
 
 
 class PanelPestanas(QTabWidget):
@@ -56,12 +107,14 @@ class PanelPestanas(QTabWidget):
         self.tabBar().setContextMenuPolicy(Qt.ContextMenuPolicy.CustomContextMenu)
         self.tabBar().customContextMenuRequested.connect(self._menu_contextual_pestana)
 
+    def establecer_modo_concentracion(self, activo: bool) -> None:
+        """En modo concentración se oculta la barra de pestañas: solo se ve el
+        contenido del documento activo."""
+        self.tabBar().setVisible(not activo)
+
     def _crear_boton_cierre(self, indice: int) -> None:
-        """Instala un QPushButton '×' siempre visible como botón de cierre de la pestaña."""
-        btn = QPushButton("×")
-        btn.setObjectName("BotonCerrarPestana")
-        btn.setFixedSize(18, 18)
-        btn.setToolTip("Cerrar")
+        """Instala un botón «×» (aspa dibujada) como cierre de la pestaña."""
+        btn = _BotonCerrarPestana()
         btn.clicked.connect(lambda: self._on_click_cerrar(btn))
         self.tabBar().setTabButton(indice, QTabBar.ButtonPosition.RightSide, btn)
 

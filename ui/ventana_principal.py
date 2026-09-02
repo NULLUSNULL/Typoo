@@ -821,6 +821,10 @@ class VentanaPrincipal(QMainWindow):
     def _abrir_item_en_editor(self, item: ItemProyecto) -> None:
         if not item.ruta_relativa:
             return
+        # Las carpetas (secciones como «Notas e investigación») no son documentos:
+        # no deben abrirse como una pestaña de edición.
+        if item.tipo in (TipoElemento.CARPETA, TipoElemento.PROYECTO):
+            return
         # Un documento solo puede estar abierto en un área: si ya lo está, se activa.
         if self._activar_item_abierto(item):
             return
@@ -1226,6 +1230,8 @@ class VentanaPrincipal(QMainWindow):
         self._dock_asistente.hide()
         self.menuBar().hide()
         self._barra_estado.hide()
+        for panel in (self._panel1, self._panel2, self._panel3):
+            panel.establecer_modo_concentracion(True)
         # Sincronizar acciones de menú (por si se reabre desde otra vía).
         self._ac_explorador.setChecked(False)
         self._ac_detalles.setChecked(False)
@@ -1247,6 +1253,8 @@ class VentanaPrincipal(QMainWindow):
         self.showNormal()
         self.menuBar().show()
         self._barra_estado.show()
+        for panel in (self._panel1, self._panel2, self._panel3):
+            panel.establecer_modo_concentracion(False)
         self._explorador.setVisible(estado.get("explorador", True))
         self._panel_metadatos.setVisible(estado.get("metadatos", True))
         self._dock_formato.setVisible(estado.get("formato", True))
@@ -1633,42 +1641,66 @@ class VentanaPrincipal(QMainWindow):
     # ─── Guardar contenido generado en Notas ─────────────────────────────────
 
     def _guardar_en_notas(self, contenido: str) -> None:
-        """Genera un título con IA y guarda el contenido como una nota nueva."""
+        """Guarda el contenido como una nota nueva en «Notas e investigación».
+
+        La nota se crea de inmediato con un título provisional derivado del
+        propio texto; después, si el asistente de IA está disponible, se intenta
+        refinar el título en segundo plano. Así la nota siempre se guarda aunque
+        el modelo tarde o no esté disponible."""
+        from models.proyecto import ROL_NOTAS
         if not self._gestor.hay_proyecto:
             self._mostrar_advertencia("Sin proyecto", "Abre un proyecto primero.")
             return
-        from ai.tareas import mensajes_titulo
-        from ai.servicio import TrabajadorIA
-        self._barra_estado.mostrar_mensaje("Generando título y guardando en Notas…")
-        self._worker_titulo = TrabajadorIA(
-            self._proveedor_ia(), mensajes_titulo(contenido[:2000]),
-            max_tokens=32, parent=self)
-        self._worker_titulo.terminado.connect(
-            lambda t, c=contenido: self._crear_nota(t, c))
-        self._worker_titulo.error.connect(
-            lambda _e, c=contenido: self._crear_nota("", c))
-        self._worker_titulo.start()
-
-    def _crear_nota(self, titulo: str, contenido: str) -> None:
-        from models.proyecto import ROL_NOTAS
         proyecto = self._gestor.proyecto_activo
-        if proyecto is None:
-            return
-        titulo = (titulo or "").strip().strip('"«»').splitlines()[0:1]
-        titulo = titulo[0][:70] if titulo else ""
-        if not titulo:
-            titulo = "Nota de IA"
         notas = proyecto.carpeta_por_rol(ROL_NOTAS)
         if notas is None:
             self._mostrar_advertencia("Sin carpeta de notas",
                                       "El proyecto no tiene la sección de Notas.")
             return
+
+        titulo = self._titulo_provisional(contenido)
         nota = self._gestor.crear_elemento(titulo, TipoElemento.NOTA, notas.id, "")
-        if nota:
-            self._gestor.guardar_documento(nota, contenido)
+        if not nota:
+            self._mostrar_advertencia("No se pudo guardar",
+                                      "No fue posible crear la nota.")
+            return
+        self._gestor.guardar_documento(nota, contenido)
+        self._explorador.refrescar()
+        self._aplicar_nombres_editores()
+        self._barra_estado.mostrar_mensaje(f"Guardado en Notas: «{titulo}».", 4000)
+
+        # Refinar el título con IA (opcional, en segundo plano).
+        if self._config.ia_habilitada:
+            try:
+                from ai.tareas import mensajes_titulo
+                from ai.servicio import TrabajadorIA
+                self._worker_titulo = TrabajadorIA(
+                    self._proveedor_ia(), mensajes_titulo(contenido[:2000]),
+                    max_tokens=48, parent=self)
+                self._worker_titulo.terminado.connect(
+                    lambda t, nid=nota.id: self._renombrar_nota_ia(nid, t))
+                self._worker_titulo.start()
+            except Exception:
+                pass
+
+    def _titulo_provisional(self, contenido: str) -> str:
+        """Título a partir de la primera línea con texto del contenido."""
+        for linea in (contenido or "").splitlines():
+            linea = linea.strip().lstrip("#").strip().strip('"«»').strip()
+            if linea:
+                return linea[:70]
+        return "Nota de IA"
+
+    def _renombrar_nota_ia(self, nota_id: str, titulo: str) -> None:
+        """Aplica el título generado por IA a una nota ya creada."""
+        titulo = (titulo or "").strip().strip('"«»').strip()
+        titulo = titulo.splitlines()[0][:70] if titulo else ""
+        if not titulo:
+            return
+        if self._gestor.renombrar_elemento(nota_id, titulo):
             self._explorador.refrescar()
             self._aplicar_nombres_editores()
-            self._barra_estado.mostrar_mensaje(f"Guardado en Notas: «{titulo}».", 4000)
+            self._barra_estado.mostrar_mensaje(f"Nota guardada como «{titulo}».", 4000)
 
     def _ia_tormenta(self) -> None:
         """Sugiere formas de continuar la historia a partir del punto actual."""
