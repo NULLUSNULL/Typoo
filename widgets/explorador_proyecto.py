@@ -330,7 +330,12 @@ class ExploradorProyecto(QWidget):
             return
         padre_item, indice = res
         if self._gestor.mover_elemento(origen.id, padre_item.id, indice):  # type: ignore[union-attr]
-            event.acceptProposedAction()
+            # El movimiento ya se ha aplicado sobre el modelo y refrescamos el
+            # árbol nosotros. Aceptamos con IgnoreAction para que Qt NO vuelva a
+            # eliminar por su cuenta la fila de origen tras el arrastre
+            # (comportamiento de InternalMove que hacía «desaparecer» el elemento).
+            event.setDropAction(Qt.DropAction.IgnoreAction)
+            event.accept()
             self.refrescar()
             self.seleccionar_item(origen.id)
             self.elemento_movido.emit(origen.id)
