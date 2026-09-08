@@ -25,6 +25,7 @@ from PySide6.QtWidgets import (
     QLabel,
     QMainWindow,
     QMessageBox,
+    QSizePolicy,
     QSplitter,
     QVBoxLayout,
     QWidget,
@@ -181,6 +182,11 @@ class VentanaPrincipal(QMainWindow):
         vbox.setSpacing(0)
         vbox.addWidget(self._barra_titulo)
         vbox.addWidget(self._barra_formato)
+
+        # La barra superior debe ceñirse a su contenido (no expandirse en
+        # vertical): así el área de edición ocupa todo el alto restante.
+        for w in (self._barra_superior, self._barra_titulo, self._barra_formato):
+            w.setSizePolicy(QSizePolicy.Policy.Preferred, QSizePolicy.Policy.Fixed)
 
         self._central_layout.insertWidget(0, self._barra_superior)
         self._actualizar_banner_ia()

@@ -12,7 +12,7 @@
 <p align="center">
   <strong>Autoría:</strong> NULLUSNULL &nbsp;·&nbsp;
   <strong>Licencia:</strong> MIT &nbsp;·&nbsp;
-  <strong>Versión:</strong> 1.3.0
+  <strong>Versión:</strong> 1.3.1
 </p>
 
 ---
