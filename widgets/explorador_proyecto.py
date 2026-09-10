@@ -5,7 +5,7 @@ from __future__ import annotations
 
 from typing import Optional
 
-from PySide6.QtCore import Qt, Signal
+from PySide6.QtCore import Qt, QTimer, Signal
 from PySide6.QtGui import QAction, QColor, QIcon, QPainter, QPixmap
 from PySide6.QtWidgets import (
     QAbstractItemView,
@@ -329,18 +329,34 @@ class ExploradorProyecto(QWidget):
             event.ignore()
             return
         padre_item, indice = res
-        if self._gestor.mover_elemento(origen.id, padre_item.id, indice):  # type: ignore[union-attr]
-            # El movimiento ya se ha aplicado sobre el modelo y refrescamos el
-            # árbol nosotros. Aceptamos con IgnoreAction para que Qt NO vuelva a
-            # eliminar por su cuenta la fila de origen tras el arrastre
-            # (comportamiento de InternalMove que hacía «desaparecer» el elemento).
+        origen_id = origen.id
+        if self._gestor.mover_elemento(origen_id, padre_item.id, indice):  # type: ignore[union-attr]
+            # El movimiento ya se ha aplicado sobre el modelo. Aceptamos con
+            # IgnoreAction para que Qt NO vuelva a eliminar por su cuenta la
+            # fila de origen tras el arrastre (comportamiento de InternalMove
+            # que hacía «desaparecer» el elemento).
             event.setDropAction(Qt.DropAction.IgnoreAction)
             event.accept()
-            self.refrescar()
-            self.seleccionar_item(origen.id)
-            self.elemento_movido.emit(origen.id)
+            # No reconstruir el árbol (clear() destruye los QTreeWidgetItem)
+            # de forma síncrona aquí: dropEvent todavía se ejecuta anidado
+            # dentro del arrastre interno de Qt (QDrag.exec()), que sigue
+            # referenciando en C++ el item de origen hasta que el arrastre
+            # termina de desenrollarse. Destruirlo ahora corrompe ese estado
+            # interno y es lo que hacía desaparecer el elemento movido
+            # (sobre todo con nodos anidados, como una escena dentro de un
+            # capítulo). Se difiere a la siguiente vuelta del bucle de
+            # eventos, cuando el arrastre ya ha concluido del todo.
+            QTimer.singleShot(0, lambda: self._refrescar_tras_mover(origen_id))
+            self.elemento_movido.emit(origen_id)
         else:
             event.ignore()
+
+    def _refrescar_tras_mover(self, origen_id: str) -> None:
+        """Reconstruye el árbol tras un arrastre, ya con el drop finalizado."""
+        if self._proyecto is None:
+            return
+        self.refrescar()
+        self.seleccionar_item(origen_id)
 
     # ─── Menú contextual ──────────────────────────────────────────────────────
 
