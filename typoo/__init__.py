@@ -6,7 +6,7 @@ Author: NULLUSNULL
 License: MIT
 """
 
-__version__ = "1.3.3"
+__version__ = "1.3.4"
 __author__ = "NULLUSNULL"
 __license__ = "MIT"
 
