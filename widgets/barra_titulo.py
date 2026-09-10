@@ -66,13 +66,13 @@ class BarraTitulo(QWidget):
         lay.setContentsMargins(10, 4, 8, 4)
         lay.setSpacing(8)
 
-        # Icono de la app (izquierda).
+        # Icono de la app: solo se usa en Linux (barra sin marco), donde
+        # sustituye a la barra de título del sistema. En Windows/macOS ya la
+        # muestra la barra de título nativa, así que aquí no se añade.
         self._icono_app = QLabel()
         self._icono_app.setFixedSize(18, 18)
         self._icono_app.setScaledContents(True)
-        lay.addWidget(self._icono_app)
-
-        lay.addStretch(1)
+        self._icono_app.hide()
 
         self._lbl_titulo = QLabel(titulo)
         self._lbl_titulo.setObjectName("BannerTitulo")
@@ -80,18 +80,23 @@ class BarraTitulo(QWidget):
         f.setBold(True)
         f.setPointSize(f.pointSize() + 1)
         self._lbl_titulo.setFont(f)
-        lay.addWidget(self._lbl_titulo)
 
         # Indicador de IA (lo gestiona la ventana principal).
         self.icono_ia = QLabel()
         self.icono_ia.setFixedSize(18, 18)
         self.icono_ia.setScaledContents(True)
         self.icono_ia.hide()
-        lay.addWidget(self.icono_ia)
 
+        # Icono a la izquierda (oculto salvo en Linux, ver establecer_icono),
+        # título centrado entre dos «stretch» simétricos, e icono de IA junto
+        # al título. Los botones de ventana solo se añaden en el modo sin
+        # marco de Linux.
+        lay.addWidget(self._icono_app)
+        lay.addStretch(1)
+        lay.addWidget(self._lbl_titulo)
+        lay.addWidget(self.icono_ia)
         lay.addStretch(1)
 
-        # Botones de ventana (solo cuando sustituimos la barra nativa).
         self._botones: list[QToolButton] = []
         if self._frameless:
             self._btn_min = self._crear_boton("min", "Minimizar", self._minimizar)
@@ -100,10 +105,6 @@ class BarraTitulo(QWidget):
                                                  cerrar=True)
             for b in (self._btn_min, self._btn_max, self._btn_cerrar):
                 lay.addWidget(b)
-        else:
-            # Sin botones: iguala el ancho de la zona derecha para centrar el
-            # rótulo respecto del icono de la izquierda.
-            self._icono_app.hide()
 
         self.aplicar_tema("#E7E7EA")
 
@@ -122,6 +123,10 @@ class BarraTitulo(QWidget):
 
     # ─── Icono de la app ──────────────────────────────────────────────────────
     def establecer_icono(self, icono: QIcon) -> None:
+        """Solo aplica en Linux (barra sin marco): en el resto de sistemas la
+        barra de título nativa ya muestra el icono de la app."""
+        if not self._frameless:
+            return
         if not icono.isNull():
             self._icono_app.setPixmap(icono.pixmap(18, 18))
             self._icono_app.show()
