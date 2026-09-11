@@ -12,7 +12,7 @@
 <p align="center">
   <strong>Autoría:</strong> NULLUSNULL &nbsp;·&nbsp;
   <strong>Licencia:</strong> MIT &nbsp;·&nbsp;
-  <strong>Versión:</strong> 1.4.0
+  <strong>Versión:</strong> 1.4.1
 </p>
 
 ---
@@ -122,7 +122,9 @@ Typoo funciona igual y no añade dependencias obligatorias. Se activa en
   - ☁️ **Nube**: OpenAI, Anthropic, NVIDIA, Groq, Mistral.
   - 💻 **Local**: Ollama y LM Studio.
   - 📦 **Embebido**: modelos GGUF descargables que se ejecutan en tu equipo
-    (dependencia opcional `llama-cpp-python`).
+    (dependencia opcional `llama-cpp-python`). El **contexto (n_ctx)** es
+    ajustable en Preferencias: más contexto admite escenas/capítulos más
+    largos y respuestas más completas, a cambio de más RAM.
 - **Funciones** (visibles solo tras habilitar):
   - **Reescribir / corregir** la selección desde el menú contextual del editor
     (pulir, condensar, expandir, cambiar de registro, «mostrar no contar»,

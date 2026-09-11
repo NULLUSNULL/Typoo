@@ -192,6 +192,18 @@ class Configuracion:
     def set_ia_api_key(self, proveedor: str, valor: str) -> None:
         self._settings.setValue(f"ia/claves/{proveedor}", valor or "")
 
+    @property
+    def ia_embebido_n_ctx(self) -> int:
+        """Tamaño de contexto (n_ctx) para modelos embebidos: cuánto texto
+        (prompt + respuesta) puede manejar el modelo a la vez. Más contexto
+        permite textos de entrada más largos y respuestas más completas, pero
+        consume más RAM. 0 = usar el valor recomendado del modelo."""
+        return int(self._settings.value("ia/embebido_n_ctx", 0))
+
+    @ia_embebido_n_ctx.setter
+    def ia_embebido_n_ctx(self, valor: int) -> None:
+        self._settings.setValue("ia/embebido_n_ctx", int(valor))
+
     # ─── Geometría de la ventana ──────────────────────────────────────────────
 
     @property

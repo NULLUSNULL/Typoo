@@ -93,6 +93,26 @@ class WidgetConfigIA(QWidget):
         self._lbl_emb = QLabel("Modelo embebido:")
         form.addRow(self._lbl_emb, self._fila_embebido)
 
+        self._combo_n_ctx = QComboBox()
+        for etiqueta, valor in [
+            ("Recomendado del modelo", 0),
+            ("4096 tokens", 4096),
+            ("8192 tokens", 8192),
+            ("16384 tokens", 16384),
+            ("32768 tokens", 32768),
+        ]:
+            self._combo_n_ctx.addItem(etiqueta, valor)
+        self._lbl_n_ctx = QLabel("Contexto (n_ctx):")
+        form.addRow(self._lbl_n_ctx, self._combo_n_ctx)
+
+        self._lbl_n_ctx_ayuda = QLabel(
+            "Cuánto texto (entrada + respuesta) puede manejar el modelo a la "
+            "vez. Un contexto mayor admite escenas/capítulos más largos y "
+            "respuestas más completas, pero consume más RAM.")
+        self._lbl_n_ctx_ayuda.setWordWrap(True)
+        self._lbl_n_ctx_ayuda.setStyleSheet("color: #8A8F98;")
+        form.addRow("", self._lbl_n_ctx_ayuda)
+
         layout.addWidget(self._form_widget)
 
         self._lbl_ayuda = QLabel()
@@ -123,6 +143,8 @@ class WidgetConfigIA(QWidget):
             self._edit_modelo.setText(self._config.ia_modelo)
         if self._config.ia_base_url:
             self._edit_url.setText(self._config.ia_base_url)
+        idx_ctx = self._combo_n_ctx.findData(self._config.ia_embebido_n_ctx)
+        self._combo_n_ctx.setCurrentIndex(idx_ctx if idx_ctx >= 0 else 0)
         self._al_cambiar_habilitado(self._chk_habilitar.isChecked())
 
     def _proveedor_actual_id(self) -> str:
@@ -146,6 +168,9 @@ class WidgetConfigIA(QWidget):
         self._edit_clave.setVisible(campos_estandar and info.requiere_clave)
         self._lbl_emb.setVisible(es_embebido)
         self._fila_embebido.setVisible(es_embebido)
+        self._lbl_n_ctx.setVisible(es_embebido)
+        self._combo_n_ctx.setVisible(es_embebido)
+        self._lbl_n_ctx_ayuda.setVisible(es_embebido)
 
         if campos_estandar:
             self._edit_modelo.setText(info.modelo_defecto)
@@ -175,7 +200,9 @@ class WidgetConfigIA(QWidget):
     def _proveedor_desde_campos(self) -> ProveedorIA:
         info = info_proveedor(self._proveedor_actual_id())
         if info.modo == "embebido":
-            return ProveedorIA(info, modelo=self._id_embebido)
+            return ProveedorIA(
+                info, modelo=self._id_embebido,
+                n_ctx=self._combo_n_ctx.currentData() or 0)
         if info.protocolo == "apple":
             return ProveedorIA(info)
         return ProveedorIA(
@@ -208,6 +235,7 @@ class WidgetConfigIA(QWidget):
         if info.modo == "embebido":
             self._config.ia_modelo = self._id_embebido
             self._config.ia_base_url = ""
+            self._config.ia_embebido_n_ctx = self._combo_n_ctx.currentData() or 0
         elif info.protocolo == "apple":
             self._config.ia_modelo = ""
             self._config.ia_base_url = ""

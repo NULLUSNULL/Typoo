@@ -12,7 +12,7 @@ class Config:
     
     # Application metadata
     APP_NAME = "Typoo"
-    APP_VERSION = "1.4.0"
+    APP_VERSION = "1.4.1"
     APP_AUTHOR = "NULLUSNULL"
     APP_LICENSE = "MIT"
     
