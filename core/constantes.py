@@ -15,7 +15,7 @@ def _base_dir() -> Path:
 # ─── Información de la aplicación ────────────────────────────────────────────
 
 NOMBRE_APP     = "Typoo"
-VERSION_APP    = "1.3.4"
+VERSION_APP    = "1.4.0"
 AUTOR_APP      = "NULLUSNULL"
 LICENCIA_APP   = "MIT License"
 DESCRIPCION    = "Suite profesional de escritura de novelas y proyectos literarios"
@@ -62,6 +62,7 @@ MAX_RESPALDOS                = 10
 ANCHO_MINIMO_EXPLORADOR      = 180
 ANCHO_MAXIMO_EXPLORADOR      = 450
 ANCHO_MINIMO_VISTA_PREVIA    = 200
+ANCHO_MINIMO_ASISTENTE       = 280
 FUENTE_EDITOR_FAMILIA        = "Lora"      # tipografía literaria empaquetada (SIL OFL)
 FUENTE_EDITOR_TAMANIO        = 15
 INTERLINEADO_EDITOR          = 150     # % de interlineado (1.5 líneas)

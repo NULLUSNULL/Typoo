@@ -177,7 +177,11 @@ class DialogoTormenta(QDialog):
         self._estado.setText(f"Desarrollando: «{titulo}»…")
         self._buffer = []
         mensajes = mensajes_desarrollar_camino(self._contexto, titulo, desc, self._foco)
-        self._lanzar(mensajes, self._al_terminar_desarrollo)
+        # Presupuesto de salida acorde al contexto: sin esto, desarrollar el
+        # camino elegido se corta a mitad cuando el contexto/foco son largos.
+        from ai.contexto import estimar_max_tokens
+        max_tokens = estimar_max_tokens(self._contexto + titulo + desc)
+        self._lanzar(mensajes, self._al_terminar_desarrollo, max_tokens=max_tokens)
 
     def _al_terminar_desarrollo(self, texto: str) -> None:
         self.texto_resultado = (texto or "".join(self._buffer)).strip()
@@ -212,10 +216,11 @@ class DialogoTormenta(QDialog):
         self.accept()
 
     # ─── Motor común ────────────────────────────────────────────────────────────
-    def _lanzar(self, mensajes, al_terminar) -> None:
+    def _lanzar(self, mensajes, al_terminar, max_tokens: int = 1024) -> None:
         self._btn_detener.setVisible(True)
         self._btn_detener.setEnabled(True)
-        self._trabajador = TrabajadorIA(self._proveedor, mensajes, parent=self)
+        self._trabajador = TrabajadorIA(
+            self._proveedor, mensajes, max_tokens=max_tokens, parent=self)
         self._trabajador.token.connect(self._al_token)
         self._trabajador.terminado.connect(al_terminar)
         self._trabajador.terminado.connect(lambda *_: self._btn_detener.setVisible(False))

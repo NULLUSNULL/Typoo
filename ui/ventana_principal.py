@@ -34,7 +34,7 @@ from PySide6.QtWidgets import (
 from core.configuracion import Configuracion
 from core.constantes import (
     NOMBRE_APP, VERSION_APP, Tema, TipoElemento,
-    ANCHO_MINIMO_EXPLORADOR, ANCHO_MINIMO_VISTA_PREVIA,
+    ANCHO_MINIMO_EXPLORADOR, ANCHO_MINIMO_VISTA_PREVIA, ANCHO_MINIMO_ASISTENTE,
     RUTA_ICONO,
 )
 from core.logger import logger
@@ -98,6 +98,7 @@ class VentanaPrincipal(QMainWindow):
         self._construir_ui()
         self._crear_menus()
         self._crear_barra_herramientas()
+        self._crear_dock_tramas()
         self._conectar_señales()
         self._restaurar_geometria()
         self._iniciar_autoguardado()
@@ -155,10 +156,19 @@ class VentanaPrincipal(QMainWindow):
         self._panel_metadatos = PanelMetadatos()
         self._panel_metadatos.setMinimumWidth(ANCHO_MINIMO_VISTA_PREVIA)
 
+        # 4. Asistente de IA (chat con contexto): a la misma altura que
+        # Detalles, dentro del splitter principal, no como un dock aparte
+        # (así queda debajo de la barra superior en vez de solaparse con ella).
+        self._panel_asistente = PanelAsistente()
+        self._panel_asistente.establecer_gestor(self._gestor)
+        self._panel_asistente.setMinimumWidth(ANCHO_MINIMO_ASISTENTE)
+        self._panel_asistente.hide()
+
         self._splitter_principal.addWidget(self._explorador)
         self._splitter_principal.addWidget(self._splitter_paneles)
         self._splitter_principal.addWidget(self._panel_metadatos)
-        self._splitter_principal.setSizes([220, 650, 280])
+        self._splitter_principal.addWidget(self._panel_asistente)
+        self._splitter_principal.setSizes([220, 650, 280, 320])
 
         # Barra de estado
         self._barra_estado = BarraEstado(self)
@@ -191,6 +201,20 @@ class VentanaPrincipal(QMainWindow):
         self._central_layout.insertWidget(0, self._barra_superior)
         self._actualizar_banner_ia()
 
+    def _crear_dock_tramas(self) -> None:
+        """Visor de tramas: banda inferior a lo ancho, plegable (dock)."""
+        self._panel_tramas = PanelTramas()
+        dock_tramas = QDockWidget("Tramas", self)
+        dock_tramas.setObjectName("DockTramas")
+        dock_tramas.setWidget(self._panel_tramas)
+        dock_tramas.setAllowedAreas(
+            Qt.DockWidgetArea.BottomDockWidgetArea |
+            Qt.DockWidgetArea.TopDockWidgetArea
+        )
+        self.addDockWidget(Qt.DockWidgetArea.BottomDockWidgetArea, dock_tramas)
+        dock_tramas.hide()
+        self._dock_tramas = dock_tramas
+
     def _actualizar_banner_ia(self) -> None:
         """Muestra el icono de IA en el banner cuando el asistente está activo."""
         if not hasattr(self, "_icono_ia"):
@@ -207,34 +231,6 @@ class VentanaPrincipal(QMainWindow):
                 self._icono_ia.hide()
         else:
             self._icono_ia.hide()
-
-        # Visor de tramas: banda inferior a lo ancho, plegable.
-        self._panel_tramas = PanelTramas()
-        dock_tramas = QDockWidget("Tramas", self)
-        dock_tramas.setObjectName("DockTramas")
-        dock_tramas.setWidget(self._panel_tramas)
-        dock_tramas.setAllowedAreas(
-            Qt.DockWidgetArea.BottomDockWidgetArea |
-            Qt.DockWidgetArea.TopDockWidgetArea
-        )
-        self.addDockWidget(Qt.DockWidgetArea.BottomDockWidgetArea, dock_tramas)
-        dock_tramas.hide()
-        self._dock_tramas = dock_tramas
-
-        # Asistente de IA (chat con contexto): panel lateral derecho, plegable.
-        self._panel_asistente = PanelAsistente()
-        self._panel_asistente.establecer_gestor(self._gestor)
-        dock_asistente = QDockWidget("Asistente", self)
-        dock_asistente.setObjectName("DockAsistente")
-        dock_asistente.setWidget(self._panel_asistente)
-        dock_asistente.setAllowedAreas(
-            Qt.DockWidgetArea.RightDockWidgetArea |
-            Qt.DockWidgetArea.LeftDockWidgetArea
-        )
-        self.addDockWidget(Qt.DockWidgetArea.RightDockWidgetArea, dock_asistente)
-        dock_asistente.hide()
-        dock_asistente.visibilityChanged.connect(self._al_cambiar_visibilidad_asistente)
-        self._dock_asistente = dock_asistente
 
     # ─── Sistema de menús ─────────────────────────────────────────────────────
 
@@ -1277,14 +1273,14 @@ class VentanaPrincipal(QMainWindow):
             "metadatos": self._panel_metadatos.isVisible(),
             "formato": self._barra_superior.isVisible(),
             "tramas": self._dock_tramas.isVisible(),
-            "asistente": self._dock_asistente.isVisible(),
+            "asistente": self._panel_asistente.isVisible(),
         }
         # Ocultar todo menos el texto.
         self._explorador.hide()
         self._panel_metadatos.hide()
         self._barra_superior.hide()
         self._dock_tramas.hide()
-        self._dock_asistente.hide()
+        self._panel_asistente.hide()
         self.menuBar().hide()
         self._barra_estado.hide()
         for panel in (self._panel1, self._panel2, self._panel3):
@@ -1316,10 +1312,12 @@ class VentanaPrincipal(QMainWindow):
         self._panel_metadatos.setVisible(estado.get("metadatos", True))
         self._barra_superior.setVisible(estado.get("formato", True))
         self._dock_tramas.setVisible(estado.get("tramas", False))
-        self._dock_asistente.setVisible(estado.get("asistente", False))
+        self._panel_asistente.setVisible(estado.get("asistente", False))
         self._ac_explorador.setChecked(estado.get("explorador", True))
         self._ac_detalles.setChecked(estado.get("metadatos", True))
         self._ac_tramas.setChecked(estado.get("tramas", False))
+        if hasattr(self, "_ac_asistente"):
+            self._ac_asistente.setChecked(estado.get("asistente", False))
         if self._atajo_salir_concentracion is not None:
             self._atajo_salir_concentracion.setEnabled(False)
         if self._hint_concentracion is not None:
@@ -1407,8 +1405,10 @@ class VentanaPrincipal(QMainWindow):
             self._reiniciar_timer_respaldo()
             self._aplicar_fuente_editores()
             # Si la IA se desactivó, ocultar su panel.
-            if not self._config.ia_habilitada and self._dock_asistente.isVisible():
-                self._dock_asistente.hide()
+            if not self._config.ia_habilitada and self._panel_asistente.isVisible():
+                self._panel_asistente.hide()
+                if hasattr(self, "_ac_asistente"):
+                    self._ac_asistente.setChecked(False)
             self._actualizar_banner_ia()
             self._barra_estado.mostrar_mensaje("Preferencias guardadas.")
 
@@ -1423,15 +1423,9 @@ class VentanaPrincipal(QMainWindow):
             if not self._config.ia_habilitada:
                 self._ac_asistente.setChecked(False)
                 return
-        self._dock_asistente.setVisible(mostrar)
+        self._panel_asistente.setVisible(mostrar)
         if mostrar:
-            self._dock_asistente.raise_()
             self._panel_asistente.poner_foco()
-
-    def _al_cambiar_visibilidad_asistente(self, visible: bool) -> None:
-        """Mantiene sincronizada la marca del menú Ver con el dock."""
-        if hasattr(self, "_ac_asistente"):
-            self._ac_asistente.setChecked(visible)
 
     def _reescribir_seleccion(self, intencion_id: str) -> None:
         if not self._config.ia_habilitada:
@@ -1449,6 +1443,7 @@ class VentanaPrincipal(QMainWindow):
         # selectedText() usa U+2029 como separador de párrafo; normalizar a \n.
         texto = texto.replace(" ", "\n")
 
+        from ai.contexto import estimar_max_tokens
         from ai.proveedores import crear_proveedor_desde_config
         from ui.dialogos.resultado_ia import DialogoResultadoIA
 
@@ -1462,8 +1457,11 @@ class VentanaPrincipal(QMainWindow):
             intencion = intencion_por_id(intencion_id)
             mensajes = mensajes_reescritura(texto, intencion)
             titulo = f"Reescribir: {intencion.etiqueta}"
+        # Presupuesto de salida acorde a la selección: con un límite fijo bajo,
+        # la reescritura de una selección larga se cortaba a mitad.
         dialogo = DialogoResultadoIA(
-            proveedor, mensajes, texto, titulo=titulo, parent=self)
+            proveedor, mensajes, texto, titulo=titulo,
+            max_tokens=estimar_max_tokens(texto), parent=self)
         if dialogo.exec() and dialogo.accion and dialogo.texto_resultado.strip():
             cur = editor.textCursor()
             if dialogo.accion == "reemplazar":
@@ -1628,7 +1626,7 @@ class VentanaPrincipal(QMainWindow):
             self._mostrar_advertencia(
                 "No aplicable", "Selecciona o abre un personaje para revisar su coherencia.")
             return
-        from ai.contexto import truncar, ficha_a_texto
+        from ai.contexto import truncar, ficha_a_texto, estimar_max_tokens
         from ai.tareas import mensajes_coherencia
         from ui.dialogos.resultado_ia import DialogoResultadoIA
 
@@ -1639,12 +1637,14 @@ class VentanaPrincipal(QMainWindow):
                 "Este personaje no está vinculado a ninguna escena. Usa los campos "
                 "«Personajes presentes» o «Punto de vista» de las escenas.")
             return
-        mensajes = mensajes_coherencia(item.nombre, ficha_a_texto(item), truncar(escenas, 8000))
+        escenas = truncar(escenas, 8000)
+        mensajes = mensajes_coherencia(item.nombre, ficha_a_texto(item), escenas)
         dialogo = DialogoResultadoIA(
             self._proveedor_ia(), mensajes, ficha_a_texto(item),
             titulo=f"Coherencia: {item.nombre}",
             acciones=[("notas", "Enviar a Notas")],
             etiqueta_original="Ficha", etiqueta_sugerencia="Informe de coherencia",
+            max_tokens=estimar_max_tokens(escenas),
             parent=self)
         if dialogo.exec() and dialogo.accion == "notas" and dialogo.texto_resultado.strip():
             self._guardar_en_notas(
@@ -1682,6 +1682,7 @@ class VentanaPrincipal(QMainWindow):
             self._mostrar_advertencia(
                 "Sin contenido", "El capítulo no tiene escenas con texto.")
             return
+        from ai.contexto import estimar_max_tokens
         from ai.tareas import mensajes_coherencia_capitulo
         from ui.dialogos.resultado_ia import DialogoResultadoIA
         mensajes = mensajes_coherencia_capitulo(item.nombre, texto)
@@ -1690,6 +1691,7 @@ class VentanaPrincipal(QMainWindow):
             titulo=f"Coherencia del capítulo: {item.nombre}",
             acciones=[("notas", "Enviar a Notas")],
             etiqueta_original="Capítulo", etiqueta_sugerencia="Informe de coherencia",
+            max_tokens=estimar_max_tokens(texto),
             parent=self)
         if dialogo.exec() and dialogo.accion == "notas" and dialogo.texto_resultado.strip():
             self._guardar_en_notas(

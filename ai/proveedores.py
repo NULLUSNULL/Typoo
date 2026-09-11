@@ -192,7 +192,7 @@ class ProveedorIA:
         elif self.protocolo == "anthropic":
             yield from self._stream_anthropic(mensajes, temperatura, max_tokens, cancelar)
         elif self.protocolo == "ollama":
-            yield from self._stream_ollama(mensajes, temperatura, cancelar)
+            yield from self._stream_ollama(mensajes, temperatura, max_tokens, cancelar)
         elif self.protocolo == "embebido":
             yield from self._stream_embebido(mensajes, temperatura, max_tokens, cancelar)
         elif self.protocolo == "apple":
@@ -268,6 +268,10 @@ class ProveedorIA:
                 "modelos embebidos (pip install llama-cpp-python).")
         if not modelos.esta_descargado(info):
             raise ErrorIA(f"El modelo «{info.etiqueta}» aún no está descargado.")
+        # info.n_ctx es el contexto TOTAL (prompt + respuesta) del modelo
+        # embebido. Reservamos la mitad para la respuesta como máximo, para no
+        # pedir más tokens de los que caben junto con el prompt.
+        max_tokens = min(max_tokens, max(512, info.n_ctx // 2))
         try:
             llm = _cargar_llm(str(modelos.ruta_modelo(info)), info.n_ctx)
             stream = llm.create_chat_completion(
@@ -347,12 +351,15 @@ class ProveedorIA:
             except json.JSONDecodeError:
                 continue
 
-    def _stream_ollama(self, mensajes, temperatura, cancelar):
+    def _stream_ollama(self, mensajes, temperatura, max_tokens, cancelar):
         cuerpo = {
             "model": self.modelo,
             "messages": mensajes,
             "stream": True,
-            "options": {"temperature": temperatura},
+            # num_predict limita los tokens de salida; sin esto, Ollama usaba
+            # su propio valor por defecto (a veces muy bajo) y la respuesta
+            # podía cortarse a mitad en textos largos.
+            "options": {"temperature": temperatura, "num_predict": max_tokens},
         }
         for linea in _lineas_stream(f"{self.base_url}/api/chat", cuerpo, {}, cancelar):
             if not linea.strip():

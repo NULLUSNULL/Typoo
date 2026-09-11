@@ -39,6 +39,7 @@ class DialogoResultadoIA(QDialog):
         acciones: Optional[list[tuple[str, str]]] = None,
         etiqueta_original: str = "Original",
         etiqueta_sugerencia: str = "Sugerencia",
+        max_tokens: int = 1024,
         parent: Optional[QWidget] = None,
     ) -> None:
         super().__init__(parent)
@@ -47,6 +48,10 @@ class DialogoResultadoIA(QDialog):
         self._proveedor = proveedor
         self._mensajes = mensajes
         self._original = texto_original
+        # Presupuesto de tokens de salida: por defecto 1024, pero el llamador
+        # puede pasar uno mayor (ai.contexto.estimar_max_tokens) para que la
+        # respuesta no se corte a mitad en textos largos.
+        self._max_tokens = max_tokens
         # (id, etiqueta) de los botones que aplican el resultado. Lista vacía =
         # modo solo lectura (informe); None = acciones de reescritura por defecto.
         if acciones is None:
@@ -135,7 +140,8 @@ class DialogoResultadoIA(QDialog):
         self._lbl_estado.setStyleSheet("color: #8A8F98;")
         self._lbl_estado.setText("Generando…")
         self._set_ejecutando(True)
-        self._trabajador = TrabajadorIA(self._proveedor, self._mensajes, parent=self)
+        self._trabajador = TrabajadorIA(
+            self._proveedor, self._mensajes, max_tokens=self._max_tokens, parent=self)
         self._trabajador.token.connect(self._al_token)
         self._trabajador.terminado.connect(self._al_terminar)
         self._trabajador.error.connect(self._al_error)
