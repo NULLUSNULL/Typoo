@@ -77,15 +77,20 @@ PROVEEDORES: dict[str, InfoProveedor] = {
 
 
 # Caché de modelos embebidos ya cargados (evita recargar el .gguf en cada tarea).
-_LLM_CACHE: dict[str, object] = {}
+_LLM_CACHE: dict[tuple[str, int], object] = {}
 
 
 def _cargar_llm(ruta: str, n_ctx: int):
-    llm = _LLM_CACHE.get(ruta)
+    """Carga (o reutiliza) el modelo embebido. La caché incluye n_ctx en la
+    clave: si el usuario cambia el contexto en Preferencias, se recarga el
+    modelo con el nuevo valor en vez de reutilizar uno cargado con otro."""
+    clave = (ruta, n_ctx)
+    llm = _LLM_CACHE.get(clave)
     if llm is None:
         import llama_cpp
         llm = llama_cpp.Llama(model_path=ruta, n_ctx=n_ctx, verbose=False)
-        _LLM_CACHE[ruta] = llm
+        _LLM_CACHE.clear()  # solo un modelo embebido cargado a la vez
+        _LLM_CACHE[clave] = llm
     return llm
 
 
@@ -170,12 +175,15 @@ class ProveedorIA:
     """Cliente de un proveedor de IA según su protocolo."""
 
     def __init__(self, info: InfoProveedor, *, modelo: str = "",
-                 api_key: str = "", base_url: str = "") -> None:
+                 api_key: str = "", base_url: str = "",
+                 n_ctx: int = 0) -> None:
         self.info = info
         self.protocolo = info.protocolo
         self.modelo = modelo or info.modelo_defecto
         self.api_key = api_key
         self.base_url = (base_url or info.base_url).rstrip("/")
+        # Contexto del modelo embebido (0 = usar el recomendado del catálogo).
+        self.n_ctx = n_ctx
 
     # -- Generación en streaming --------------------------------------------
     def generar_stream(
@@ -192,7 +200,7 @@ class ProveedorIA:
         elif self.protocolo == "anthropic":
             yield from self._stream_anthropic(mensajes, temperatura, max_tokens, cancelar)
         elif self.protocolo == "ollama":
-            yield from self._stream_ollama(mensajes, temperatura, cancelar)
+            yield from self._stream_ollama(mensajes, temperatura, max_tokens, cancelar)
         elif self.protocolo == "embebido":
             yield from self._stream_embebido(mensajes, temperatura, max_tokens, cancelar)
         elif self.protocolo == "apple":
@@ -268,8 +276,14 @@ class ProveedorIA:
                 "modelos embebidos (pip install llama-cpp-python).")
         if not modelos.esta_descargado(info):
             raise ErrorIA(f"El modelo «{info.etiqueta}» aún no está descargado.")
+        # n_ctx es el contexto TOTAL (prompt + respuesta) del modelo embebido.
+        # Usa el configurado por el usuario en Preferencias si lo hay; si no,
+        # el recomendado del catálogo. Reservamos la mitad para la respuesta
+        # como máximo, para no pedir más tokens de los que caben con el prompt.
+        n_ctx = self.n_ctx or info.n_ctx
+        max_tokens = min(max_tokens, max(512, n_ctx // 2))
         try:
-            llm = _cargar_llm(str(modelos.ruta_modelo(info)), info.n_ctx)
+            llm = _cargar_llm(str(modelos.ruta_modelo(info)), n_ctx)
             stream = llm.create_chat_completion(
                 messages=mensajes,
                 temperature=temperatura,
@@ -347,12 +361,15 @@ class ProveedorIA:
             except json.JSONDecodeError:
                 continue
 
-    def _stream_ollama(self, mensajes, temperatura, cancelar):
+    def _stream_ollama(self, mensajes, temperatura, max_tokens, cancelar):
         cuerpo = {
             "model": self.modelo,
             "messages": mensajes,
             "stream": True,
-            "options": {"temperature": temperatura},
+            # num_predict limita los tokens de salida; sin esto, Ollama usaba
+            # su propio valor por defecto (a veces muy bajo) y la respuesta
+            # podía cortarse a mitad en textos largos.
+            "options": {"temperature": temperatura, "num_predict": max_tokens},
         }
         for linea in _lineas_stream(f"{self.base_url}/api/chat", cuerpo, {}, cancelar):
             if not linea.strip():
@@ -412,4 +429,5 @@ def crear_proveedor_desde_config(config) -> ProveedorIA:
         modelo=config.ia_modelo,
         api_key=config.ia_api_key(info.id) if info.requiere_clave else "",
         base_url=config.ia_base_url,
+        n_ctx=config.ia_embebido_n_ctx if info.modo == "embebido" else 0,
     )
