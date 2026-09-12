@@ -12,7 +12,7 @@
 <p align="center">
   <strong>Autoría:</strong> NULLUSNULL &nbsp;·&nbsp;
   <strong>Licencia:</strong> MIT &nbsp;·&nbsp;
-  <strong>Versión:</strong> 1.4.1
+  <strong>Versión:</strong> 1.5.0
 </p>
 
 ---
@@ -37,6 +37,7 @@
 | 🗄️ Respaldos | Ruta personalizada e intervalo configurable (5 min – 1 h) |
 | 🧘 Modo concentración | Deja solo el texto centrado: oculta menú, paneles y barra de edición. `F12` entra, `Esc` sale |
 | 🪟 Barra de título propia (Linux) | En Linux la ventana prescinde de la barra de título del sistema: el nombre de la app y los botones de minimizar/maximizar/cerrar viven en la barra superior; se arrastra desde ahí y se maximiza con doble clic |
+| 📖 Guía de uso | *Ayuda → Guía de uso…* (`F1`): explica todas las funciones por secciones, con buscador que filtra y resalta coincidencias |
 
 ---
 
@@ -92,6 +93,7 @@ python main.py
 | `F11` | Pantalla completa |
 | `F12` | Modo concentración (`Esc` para salir) |
 | `Ctrl+,` | Preferencias |
+| `F1` | Guía de uso |
 | `Ctrl+Q` | Salir |
 
 ---
@@ -290,6 +292,7 @@ Typoo/
 │   │   └── gestor_temas.py      # Hojas de estilo QSS claro/oscuro
 │   └── dialogos/
 │       ├── gestor_proyectos.py  # Gestor de proyectos (inicio y menú)
+│       ├── guia_uso.py          # Guía de uso navegable, con buscador (Ayuda → F1)
 │       ├── nuevo_proyecto.py    # Diálogo de nuevo proyecto
 │       ├── buscar_reemplazar.py # Diálogo buscar/reemplazar
 │       ├── exportar.py          # Diálogo de exportación

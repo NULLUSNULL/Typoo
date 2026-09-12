@@ -47,6 +47,7 @@ from services.gestor_proyectos import GestorProyectos
 from ui.dialogos.buscar_reemplazar import DialogoBuscarReemplazar
 from ui.dialogos.exportar import DialogoExportar
 from ui.dialogos.gestor_proyectos import DialogoGestorProyectos
+from ui.dialogos.guia_uso import DialogoGuiaUso
 from ui.dialogos.nuevo_proyecto import DialogoNuevoProyecto
 from ui.dialogos.preferencias import DialogoPreferencias
 from ui.temas.gestor_temas import GestorTemas
@@ -91,6 +92,7 @@ class VentanaPrincipal(QMainWindow):
         self._hint_concentracion: Optional[QLabel] = None
         self._atajo_salir_concentracion: Optional[QShortcut] = None
         self._estado_concentracion: dict = {}
+        self._dialogo_guia: Optional[DialogoGuiaUso] = None
 
         self._redimensionador = None
         self._configurar_marco_sin_borde()
@@ -404,6 +406,9 @@ class VentanaPrincipal(QMainWindow):
 
         # ── Menú Ayuda ────────────────────────────────────────────────────────
         m_ayuda = barra.addMenu("A&yuda")
+        ac = self._accion("&Guía de uso…", "F1", self._abrir_guia_uso)
+        m_ayuda.addAction(ac)
+        m_ayuda.addSeparator()
         ac = self._accion(f"Acerca de {NOMBRE_APP}", "", self._acerca_de)
         m_ayuda.addAction(ac)
 
@@ -1379,6 +1384,17 @@ class VentanaPrincipal(QMainWindow):
             self._barra_estado.mostrar_mensaje("Respaldo creado correctamente.")
         else:
             self._mostrar_error("Error", "No se pudo crear el respaldo.")
+
+    # ─── Guía de uso ──────────────────────────────────────────────────────────
+
+    def _abrir_guia_uso(self) -> None:
+        """Abre la guía de uso (no modal, para poder consultarla mientras se
+        trabaja); reutiliza la misma instancia si ya estaba abierta."""
+        if self._dialogo_guia is None:
+            self._dialogo_guia = DialogoGuiaUso(self)
+        self._dialogo_guia.show()
+        self._dialogo_guia.raise_()
+        self._dialogo_guia.activateWindow()
 
     # ─── Acerca de ────────────────────────────────────────────────────────────
 
