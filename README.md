@@ -12,7 +12,7 @@
 <p align="center">
   <strong>Autoría:</strong> NULLUSNULL &nbsp;·&nbsp;
   <strong>Licencia:</strong> MIT &nbsp;·&nbsp;
-  <strong>Versión:</strong> 1.5.0
+  <strong>Versión:</strong> 1.6.0
 </p>
 
 ---
@@ -30,7 +30,7 @@
 | 🧵 Visor de tramas | Rejilla *story grid* (escenas × entidad) coloreada por trama: muestra qué escenas desarrollan cada **trama**, en qué escenas aparece cada **personaje** y dónde ocurre cada **ubicación** |
 | 🎨 Barra de formato | Iconos vectoriales nítidos para negrita/cursiva/subrayado/tachado, sub/superíndice, citas, listas con sangría multinivel (Tab/Mayús+Tab) y separador de escena; más caracteres especiales (guiones, comillas españolas/inglesas, símbolos) |
 | 🤖 Asistente de IA (opcional) | Reescritura, corrección, sinopsis y fichas, guardián de coherencia, tormenta de ideas y chat con contexto (RAG). **Desactivado por defecto** |
-| 🔍 Búsqueda | Simple, con regex y búsqueda en todo el proyecto |
+| 🔍 Búsqueda | En el documento (con regex) y **en todo el proyecto**: lista de resultados agrupados por documento, con contexto resaltado y salto directo a la coincidencia |
 | 📤 Exportación | Word (.docx), PDF y texto plano (.txt) |
 | 🌗 Temas | Oscuro (defecto) y claro tipo macOS, intercambiables con Ctrl+Shift+T |
 | 💾 Autoguardado | Configurable, con copias de seguridad ZIP automáticas |
@@ -201,6 +201,21 @@ responde a tres consultas:
 | **Ubicación → escenas** | Qué escenas ocurren en cada ubicación |
 
 Las tramas se guardan en `proyecto.json` y los vínculos en los metadatos de cada escena.
+
+---
+
+## 🔍 Búsqueda en todo el proyecto
+
+El diálogo de búsqueda (`Ctrl+F` / `Ctrl+H`) tiene una pestaña **«En el
+proyecto»** que busca (con regex opcional) en todos los documentos, no solo
+en el abierto:
+
+- Los resultados se listan **agrupados por documento**, con el número de
+  línea y un fragmento de contexto donde la coincidencia queda marcada
+  entre `⟪⟫`.
+- **Doble clic** (o `Intro`) sobre un resultado abre ese documento —o lo
+  activa, si ya estaba abierto— y **selecciona exactamente** el texto
+  encontrado.
 
 ---
 

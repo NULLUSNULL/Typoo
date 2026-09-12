@@ -188,11 +188,22 @@ TEMAS: list[Tema] = [
     Tema("buscar", "Buscar y reemplazar", "🔍", """
         <h2>Buscar y reemplazar</h2>
         <p><code>Ctrl+F</code> o <code>Ctrl+H</code> abren el mismo diálogo,
-        con soporte de <b>expresiones regulares</b> y opción de ignorar
-        mayúsculas/minúsculas.</p>
-        <p>El botón <b>«Buscar en todo el proyecto»</b> extiende la búsqueda a
-        todos los documentos, no solo al que tienes abierto, y muestra un
-        recuento de coincidencias.</p>
+        con tres pestañas: <b>Buscar</b>, <b>Reemplazar</b> y
+        <b>En el proyecto</b>. Ambas búsquedas admiten <b>expresiones
+        regulares</b> y la opción de ignorar mayúsculas/minúsculas.</p>
+        <h3>En el documento activo</h3>
+        <p>«Buscar» resalta la coincidencia y permite saltar a la
+        siguiente/anterior; «Reemplazar» sustituye una coincidencia o todas
+        a la vez, solo en el documento abierto.</p>
+        <h3>En todo el proyecto</h3>
+        <p>La pestaña <b>«En el proyecto»</b> busca en <i>todos</i> los
+        documentos del proyecto (no solo el abierto) y muestra los
+        resultados en una lista, <b>agrupados por documento</b>, con el
+        número de línea y un fragmento de contexto donde la coincidencia
+        aparece marcada entre <code>⟪⟫</code>.</p>
+        <p>Doble clic (o <code>Intro</code>) sobre un resultado <b>abre ese
+        documento</b> (o lo activa, si ya estaba abierto) y <b>selecciona
+        exactamente</b> el texto encontrado, listo para editar.</p>
     """),
 
     Tema("exportar", "Exportación", "📤", """

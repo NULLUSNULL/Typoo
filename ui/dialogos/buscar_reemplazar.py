@@ -14,6 +14,8 @@ from PySide6.QtWidgets import (
     QHBoxLayout,
     QLabel,
     QLineEdit,
+    QListWidget,
+    QListWidgetItem,
     QPushButton,
     QTabWidget,
     QVBoxLayout,
@@ -34,11 +36,13 @@ class DialogoBuscarReemplazar(QDialog):
     reemplazar_solicitado   = Signal(str, str, bool, bool)  # (patron, reemplazo, regex, ignorar)
     reemplazar_todo         = Signal(str, str, bool, bool)
     buscar_proyecto         = Signal(str, bool, bool)    # búsqueda en todo el proyecto
+    resultado_activado      = Signal(object)             # resultado de la lista elegido
 
     def __init__(self, parent: Optional[QWidget] = None) -> None:
         super().__init__(parent)
         self.setWindowTitle("Buscar y reemplazar")
         self.setMinimumWidth(460)
+        self.resize(560, 460)
         # No modal: permite editar mientras el diálogo está abierto
         self.setWindowFlags(
             self.windowFlags() | Qt.WindowType.WindowStaysOnTopHint
@@ -141,13 +145,28 @@ class DialogoBuscarReemplazar(QDialog):
         lay.addWidget(QLabel("Buscar:"))
         self._campo_buscar_p = QLineEdit()
         self._campo_buscar_p.setPlaceholderText("Buscar en todos los archivos del proyecto…")
+        self._campo_buscar_p.returnPressed.connect(self._al_buscar_proyecto)
         lay.addWidget(self._campo_buscar_p)
+        btn = QPushButton("Buscar en el proyecto")
+        btn.clicked.connect(self._al_buscar_proyecto)
+        lay.addWidget(btn)
         layout.addLayout(lay)
 
-        btn = QPushButton("Buscar en todo el proyecto")
-        btn.clicked.connect(self._al_buscar_proyecto)
-        layout.addWidget(btn, alignment=Qt.AlignmentFlag.AlignRight)
-        layout.addStretch()
+        self._lista_resultados = QListWidget()
+        self._lista_resultados.setObjectName("ListaResultadosProyecto")
+        self._lista_resultados.setAlternatingRowColors(False)
+        self._lista_resultados.setStyleSheet(
+            "#ListaResultadosProyecto::item { padding: 4px 6px; border-radius: 5px; }"
+            "#ListaResultadosProyecto::item:selected,"
+            "#ListaResultadosProyecto::item:selected:!active {"
+            " background: #2F6FE0; color: #FFFFFF; }"
+        )
+        self._lista_resultados.itemActivated.connect(self._al_activar_resultado)
+        layout.addWidget(self._lista_resultados, 1)
+
+        ayuda = QLabel("Doble clic (o Intro) en un resultado para ir a esa línea.")
+        ayuda.setStyleSheet("color: #8A8F98;")
+        layout.addWidget(ayuda)
         return widget
 
     # ─── Callbacks internos ───────────────────────────────────────────────────
@@ -188,3 +207,49 @@ class DialogoBuscarReemplazar(QDialog):
         """Pre-rellena el campo de búsqueda con texto seleccionado en el editor."""
         self._campo_buscar.setText(texto)
         self._campo_buscar_r.setText(texto)
+
+    # ─── Resultados de la búsqueda en el proyecto ──────────────────────────────
+
+    def mostrar_resultados_proyecto(self, encontrados: list) -> None:
+        """Rellena la lista con los resultados, agrupados por documento.
+
+        `encontrados` es una lista de tuplas (ItemProyecto, ResultadoBusqueda),
+        ya ordenada por documento. Cada resultado se guarda en el propio
+        QListWidgetItem para poder recuperarlo al activarlo."""
+        self._lista_resultados.clear()
+        item_id_anterior = None
+        for item_proyecto, resultado in encontrados:
+            if item_proyecto.id != item_id_anterior:
+                cabecera = QListWidgetItem(f"📄 {item_proyecto.nombre}")
+                cabecera.setFlags(Qt.ItemFlag.NoItemFlags)
+                f = cabecera.font()
+                f.setBold(True)
+                cabecera.setFont(f)
+                self._lista_resultados.addItem(cabecera)
+                item_id_anterior = item_proyecto.id
+            fila = QListWidgetItem(
+                f"      línea {resultado.numero_linea}:  {_contexto(resultado)}")
+            fila.setData(Qt.ItemDataRole.UserRole, (item_proyecto, resultado))
+            self._lista_resultados.addItem(fila)
+
+        n = len(encontrados)
+        self.mostrar_resultado(
+            f"{n} coincidencia(s) en todo el proyecto." if n else
+            "Sin coincidencias en el proyecto.")
+
+    def _al_activar_resultado(self, item: QListWidgetItem) -> None:
+        datos = item.data(Qt.ItemDataRole.UserRole)
+        if datos is not None:
+            self.resultado_activado.emit(datos)
+
+
+def _contexto(resultado, radio: int = 40) -> str:
+    """Fragmento legible de la línea con la coincidencia resaltada entre ⟪⟫."""
+    linea = resultado.texto_linea
+    ini, fin = resultado.inicio, resultado.fin
+    inicio_ctx = max(0, ini - radio)
+    fin_ctx = min(len(linea), fin + radio)
+    prefijo = "…" if inicio_ctx > 0 else ""
+    sufijo = "…" if fin_ctx < len(linea) else ""
+    return (f"{prefijo}{linea[inicio_ctx:ini]}"
+            f"⟪{linea[ini:fin]}⟫{linea[fin:fin_ctx]}{sufijo}")
