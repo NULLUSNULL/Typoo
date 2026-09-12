@@ -12,7 +12,7 @@
 <p align="center">
   <strong>Autoría:</strong> NULLUSNULL &nbsp;·&nbsp;
   <strong>Licencia:</strong> MIT &nbsp;·&nbsp;
-  <strong>Versión:</strong> 1.4.1
+  <strong>Versión:</strong> 1.6.0
 </p>
 
 ---
@@ -30,13 +30,14 @@
 | 🧵 Visor de tramas | Rejilla *story grid* (escenas × entidad) coloreada por trama: muestra qué escenas desarrollan cada **trama**, en qué escenas aparece cada **personaje** y dónde ocurre cada **ubicación** |
 | 🎨 Barra de formato | Iconos vectoriales nítidos para negrita/cursiva/subrayado/tachado, sub/superíndice, citas, listas con sangría multinivel (Tab/Mayús+Tab) y separador de escena; más caracteres especiales (guiones, comillas españolas/inglesas, símbolos) |
 | 🤖 Asistente de IA (opcional) | Reescritura, corrección, sinopsis y fichas, guardián de coherencia, tormenta de ideas y chat con contexto (RAG). **Desactivado por defecto** |
-| 🔍 Búsqueda | Simple, con regex y búsqueda en todo el proyecto |
+| 🔍 Búsqueda | En el documento (con regex) y **en todo el proyecto**: lista de resultados agrupados por documento, con contexto resaltado y salto directo a la coincidencia |
 | 📤 Exportación | Word (.docx), PDF y texto plano (.txt) |
 | 🌗 Temas | Oscuro (defecto) y claro tipo macOS, intercambiables con Ctrl+Shift+T |
 | 💾 Autoguardado | Configurable, con copias de seguridad ZIP automáticas |
 | 🗄️ Respaldos | Ruta personalizada e intervalo configurable (5 min – 1 h) |
 | 🧘 Modo concentración | Deja solo el texto centrado: oculta menú, paneles y barra de edición. `F12` entra, `Esc` sale |
 | 🪟 Barra de título propia (Linux) | En Linux la ventana prescinde de la barra de título del sistema: el nombre de la app y los botones de minimizar/maximizar/cerrar viven en la barra superior; se arrastra desde ahí y se maximiza con doble clic |
+| 📖 Guía de uso | *Ayuda → Guía de uso…* (`F1`): explica todas las funciones por secciones, con buscador que filtra y resalta coincidencias |
 
 ---
 
@@ -92,6 +93,7 @@ python main.py
 | `F11` | Pantalla completa |
 | `F12` | Modo concentración (`Esc` para salir) |
 | `Ctrl+,` | Preferencias |
+| `F1` | Guía de uso |
 | `Ctrl+Q` | Salir |
 
 ---
@@ -202,6 +204,21 @@ Las tramas se guardan en `proyecto.json` y los vínculos en los metadatos de cad
 
 ---
 
+## 🔍 Búsqueda en todo el proyecto
+
+El diálogo de búsqueda (`Ctrl+F` / `Ctrl+H`) tiene una pestaña **«En el
+proyecto»** que busca (con regex opcional) en todos los documentos, no solo
+en el abierto:
+
+- Los resultados se listan **agrupados por documento**, con el número de
+  línea y un fragmento de contexto donde la coincidencia queda marcada
+  entre `⟪⟫`.
+- **Doble clic** (o `Intro`) sobre un resultado abre ese documento —o lo
+  activa, si ya estaba abierto— y **selecciona exactamente** el texto
+  encontrado.
+
+---
+
 ## 💾 Respaldos automáticos
 
 En *Preferencias* (Ctrl+,) → sección **Respaldo automático**:
@@ -290,6 +307,7 @@ Typoo/
 │   │   └── gestor_temas.py      # Hojas de estilo QSS claro/oscuro
 │   └── dialogos/
 │       ├── gestor_proyectos.py  # Gestor de proyectos (inicio y menú)
+│       ├── guia_uso.py          # Guía de uso navegable, con buscador (Ayuda → F1)
 │       ├── nuevo_proyecto.py    # Diálogo de nuevo proyecto
 │       ├── buscar_reemplazar.py # Diálogo buscar/reemplazar
 │       ├── exportar.py          # Diálogo de exportación

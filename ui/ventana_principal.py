@@ -47,6 +47,7 @@ from services.gestor_proyectos import GestorProyectos
 from ui.dialogos.buscar_reemplazar import DialogoBuscarReemplazar
 from ui.dialogos.exportar import DialogoExportar
 from ui.dialogos.gestor_proyectos import DialogoGestorProyectos
+from ui.dialogos.guia_uso import DialogoGuiaUso
 from ui.dialogos.nuevo_proyecto import DialogoNuevoProyecto
 from ui.dialogos.preferencias import DialogoPreferencias
 from ui.temas.gestor_temas import GestorTemas
@@ -91,6 +92,7 @@ class VentanaPrincipal(QMainWindow):
         self._hint_concentracion: Optional[QLabel] = None
         self._atajo_salir_concentracion: Optional[QShortcut] = None
         self._estado_concentracion: dict = {}
+        self._dialogo_guia: Optional[DialogoGuiaUso] = None
 
         self._redimensionador = None
         self._configurar_marco_sin_borde()
@@ -404,6 +406,9 @@ class VentanaPrincipal(QMainWindow):
 
         # ── Menú Ayuda ────────────────────────────────────────────────────────
         m_ayuda = barra.addMenu("A&yuda")
+        ac = self._accion("&Guía de uso…", "F1", self._abrir_guia_uso)
+        m_ayuda.addAction(ac)
+        m_ayuda.addSeparator()
         ac = self._accion(f"Acerca de {NOMBRE_APP}", "", self._acerca_de)
         m_ayuda.addAction(ac)
 
@@ -987,6 +992,7 @@ class VentanaPrincipal(QMainWindow):
             self._dialogo_buscar.reemplazar_solicitado.connect(self._reemplazar)
             self._dialogo_buscar.reemplazar_todo.connect(self._reemplazar_todo)
             self._dialogo_buscar.buscar_proyecto.connect(self._buscar_en_proyecto)
+            self._dialogo_buscar.resultado_activado.connect(self._ir_a_resultado_proyecto)
 
         # Pre-rellenar con la selección actual
         editor = self._editor_activo()
@@ -1063,17 +1069,52 @@ class VentanaPrincipal(QMainWindow):
     def _buscar_en_proyecto(self, patron: str, regex: bool, ignorar: bool) -> None:
         if not self._gestor.hay_proyecto:
             return
+        proyecto = self._gestor.proyecto_activo
         resultados = ServicioBusqueda.buscar_en_proyecto(
-            self._gestor.proyecto_activo.ruta, patron, regex, ignorar
+            proyecto.ruta, patron, regex, ignorar
         )
-        msg = (
-            f"{len(resultados)} coincidencia(s) en todo el proyecto."
-            if resultados else
-            "Sin coincidencias en el proyecto."
-        )
+        # Cada resultado trae la ruta del archivo en disco; la resolvemos al
+        # ItemProyecto correspondiente para poder abrirlo y saltar a la línea.
+        encontrados = []
+        for resultado in resultados:
+            try:
+                ruta_relativa = resultado.ruta.relative_to(proyecto.ruta).as_posix()
+            except ValueError:
+                continue
+            item = proyecto.buscar_item_por_ruta(ruta_relativa)
+            if item:
+                encontrados.append((item, resultado))
+        encontrados.sort(key=lambda par: (par[0].nombre.casefold(), par[1].numero_linea))
+
+        self._resultados_proyecto = encontrados
         if self._dialogo_buscar:
-            self._dialogo_buscar.mostrar_resultado(msg)
-        self._barra_estado.mostrar_mensaje(msg, 5000)
+            self._dialogo_buscar.mostrar_resultados_proyecto(encontrados)
+        n = len(encontrados)
+        self._barra_estado.mostrar_mensaje(
+            f"{n} coincidencia(s) en todo el proyecto." if n else
+            "Sin coincidencias en el proyecto.", 5000)
+
+    def _ir_a_resultado_proyecto(self, datos) -> None:
+        """Abre el documento de un resultado de «Buscar en el proyecto» y
+        posiciona el cursor exactamente sobre la coincidencia."""
+        item, resultado = datos
+        self._abrir_item_en_editor(item)
+        localizacion = self._localizar_item_abierto(item.id)
+        if not localizacion:
+            return
+        panel, _num, indice = localizacion
+        editor = panel.widget(indice)
+        if not editor:
+            return
+        bloque = editor.document().findBlockByNumber(resultado.numero_linea - 1)
+        if not bloque.isValid():
+            return
+        cursor = editor.textCursor()
+        cursor.setPosition(bloque.position() + resultado.inicio)
+        cursor.setPosition(bloque.position() + resultado.fin, QTextCursor.MoveMode.KeepAnchor)
+        editor.setTextCursor(cursor)
+        editor.ensureCursorVisible()
+        editor.setFocus()
 
     # ─── Gestión de paneles ───────────────────────────────────────────────────
 
@@ -1379,6 +1420,17 @@ class VentanaPrincipal(QMainWindow):
             self._barra_estado.mostrar_mensaje("Respaldo creado correctamente.")
         else:
             self._mostrar_error("Error", "No se pudo crear el respaldo.")
+
+    # ─── Guía de uso ──────────────────────────────────────────────────────────
+
+    def _abrir_guia_uso(self) -> None:
+        """Abre la guía de uso (no modal, para poder consultarla mientras se
+        trabaja); reutiliza la misma instancia si ya estaba abierta."""
+        if self._dialogo_guia is None:
+            self._dialogo_guia = DialogoGuiaUso(self)
+        self._dialogo_guia.show()
+        self._dialogo_guia.raise_()
+        self._dialogo_guia.activateWindow()
 
     # ─── Acerca de ────────────────────────────────────────────────────────────
 

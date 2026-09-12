@@ -81,6 +81,24 @@ class Proyecto:
     def ruta_absoluta_item(self, item: ItemProyecto) -> Path:
         return self.ruta / item.ruta_relativa
 
+    def buscar_item_por_ruta(self, ruta_relativa: str) -> Optional[ItemProyecto]:
+        """Busca el documento cuyo `ruta_relativa` coincide (para resolver
+        resultados de búsqueda en el proyecto, que trabajan con rutas de
+        archivo en vez de con el árbol)."""
+        if not self.raiz or not ruta_relativa:
+            return None
+
+        def recorrer(nodo: ItemProyecto) -> Optional[ItemProyecto]:
+            if nodo.ruta_relativa == ruta_relativa:
+                return nodo
+            for hijo in nodo.hijos:
+                encontrado = recorrer(hijo)
+                if encontrado:
+                    return encontrado
+            return None
+
+        return recorrer(self.raiz)
+
     # ─── Carpetas estándar del dossier ────────────────────────────────────────
 
     def carpeta_por_rol(self, rol: str) -> Optional[ItemProyecto]:
